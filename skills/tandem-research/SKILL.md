@@ -1,15 +1,17 @@
 ---
 name: tandem-research
-description: Independent GPT-6 Astra and Claude Opus 5 research, cross-critique, evidence adjudication, consensus reporting, and Astra-only implementation. Use for tandem research, deep audits, competing hypotheses, architecture decisions, incident analysis, high-stakes second opinions, or research-led implementation in any repository.
+description: Explicit-only independent GPT-5.6 Sol and Claude Opus 5 research with cross-critique and Sol adjudication. Invoke only when the user requests tandem research or two independent frontier investigations; never infer invocation from complexity alone.
 allowed-tools:
   - write
 ---
 
 # Tandem Research Skill
 
-Use this global skill when the operator invokes `/tandem-research`, asks for
-Astra/Opus tandem analysis, requests two independent frontier-model opinions,
-or wants a high-confidence research/audit decision before implementation.
+Use this global skill only when the operator invokes `/tandem-research`, asks
+for Sol/Opus tandem analysis, or explicitly requests two independent
+frontier-model investigations. An audit, architecture decision, or request
+for high confidence alone does not invoke this protocol. Use budget-workflow
+for ordinary work. A request not to use tandem always excludes this skill.
 
 Canonical source: `https://github.com/SFenton/copilot-config`.
 
@@ -27,12 +29,12 @@ actual tool list.
 
 | Agent/model | Search | Read | Mutation |
 |---|---|---|---|
-| GPT-6 Astra | `rg`, `glob` | `view` | `apply_patch` |
+| GPT-5.6 Sol | `rg`, `glob` | `view` | `apply_patch` |
 | Claude Opus 5 | `grep`, `glob` | `view` | `create`, `edit` |
 
 The Claude mutation tools may be exposed by a `general-purpose` agent, but the
-tandem contract keeps Claude read-only. They are not aliases that Astra can
-call. Likewise, Claude must not call Astra's `rg` or `apply_patch` names.
+tandem contract keeps Claude read-only. They are not aliases that Sol can call.
+Likewise, Claude must not call Sol's `rg` or `apply_patch` names.
 
 `rg` and GNU `grep` are shell executables only when invoked through `bash`;
 `apply_patch`, `create`, and `edit` are Copilot built-ins and cannot be
@@ -64,7 +66,7 @@ The tandem always consists of:
 
 | Role | Model | Effort | Context |
 |---|---|---|---|
-| Primary researcher and final adjudicator | `gpt-6-astra` | `max` | `long_context` |
+| Primary researcher and final adjudicator | `gpt-5.6-sol` | `max` | `long_context` |
 | Independent second researcher | `claude-opus-5` | `max` | `long_context` |
 
 Requirements:
@@ -76,9 +78,9 @@ Requirements:
    `subagent.configured` event to contain the expected `model`,
    `reasoningEffort`, and `contextTier`; a successful start alone is
    insufficient.
-3. Retain the same GPT-6 Astra agent through first-pass research,
+3. Retain the same GPT-5.6 Sol agent through first-pass research,
    cross-critique, and final adjudication. The parent coordinator orchestrates
-   the workflow but does not replace Astra's evidence-based ruling with its own
+   the workflow but does not replace Sol's evidence-based ruling with its own
    model judgment.
 4. The first-pass researchers must work independently. Do not reveal either
    model's conclusions to the other before both initial reports are complete.
@@ -96,7 +98,7 @@ Requirements:
   technology, or external-source research.
 - Use a `general-purpose` agent for deep local repository/runtime/database
   analysis that requires the full toolset, and whenever the same explicitly
-  pinned Astra agent may proceed from research into implementation.
+  pinned Sol agent may proceed from research into implementation.
 - Use `code-review` only when a concrete diff already exists and the requested
   task is specifically a diff review.
 - Independent first-pass researchers must not mutate anything before
@@ -153,7 +155,7 @@ skill is independent overlap on the same important decision.
 After both initial reports complete, the parent coordinator constructs a
 claim-by-claim matrix:
 
-| Claim / decision | Astra evidence and view | Opus evidence and view | Agreement | Confidence | Adjudication needed |
+| Claim / decision | Sol evidence and view | Opus evidence and view | Agreement | Confidence | Adjudication needed |
 |---|---|---|---|---|---|
 
 Classify each material item as:
@@ -184,15 +186,15 @@ Do not launch replacement agents merely to restate the same critique.
 
 ### 5. Resolve evidence gaps and adjudicate
 
-The parent coordinator gathers evidence, then the retained GPT-6 Astra agent
+The parent coordinator gathers evidence, then the retained GPT-5.6 Sol agent
 owns final adjudication:
 
 1. The coordinator runs the smallest safe read-only probes needed to resolve
    factual conflicts.
 2. The coordinator rechecks citations and reproduces important measurements.
 3. Send the resolved evidence, comparison matrix, and remaining conflicts to
-   the retained Astra agent.
-4. The Astra agent rejects attractive conclusions that fail evidence or safety
+   the retained Sol agent.
+4. The Sol agent rejects attractive conclusions that fail evidence or safety
    gates and produces the final ruling.
 5. The coordinator relays that ruling without substituting a new model
    judgment, preserves unresolved uncertainty explicitly, and still enforces
@@ -209,7 +211,7 @@ Use this structure unless the operator requests another format:
 
 1. **Executive decision** - the practical answer and confidence.
 2. **What both models agree on** - verified consensus only.
-3. **Where they disagreed** - both positions and Astra's evidence-based ruling.
+3. **Where they disagreed** - both positions and Sol's evidence-based ruling.
 4. **Unique findings** - valuable items found by only one model.
 5. **Rejected hypotheses** - what was considered and why it failed.
 6. **Prioritized work** - ordered phases/tasks, dependencies, risks, expected
@@ -220,14 +222,14 @@ Use this structure unless the operator requests another format:
 For audits, include a concise quality assessment such as
 `great / good / okay / poor / bad` when useful.
 
-## Astra-only implementation contract
+## Sol-only implementation contract
 
 If implementation follows the research:
 
-1. **GPT-6 Astra owns all implementation decisions and side effects.**
+1. **GPT-5.6 Sol owns all implementation decisions and side effects.**
 2. Code changes, tests, builds, benchmarks, migrations, deployments, restarts,
    production probes, rollback, commits, and final validation must be performed
-   by a `general-purpose` agent launched explicitly with `model: gpt-6-astra`,
+   by a `general-purpose` agent launched explicitly with `model: gpt-5.6-sol`,
    `reasoning_effort: max`, and `context_tier: long_context`. Verify the
    resolved runtime configuration before mutation. Never delegate
    implementation to a `research` or `code-review` agent.
@@ -239,22 +241,22 @@ If implementation follows the research:
    smallest targeted validation that proves the requested outcome.
 5. A research recommendation is not authorization for destructive or live
    changes. Respect repository/operator gates.
-6. Reuse the retained Astra agent when it is a `general-purpose` agent with the
-   required mutation tool. Otherwise launch another `general-purpose` Astra
+6. Reuse the retained Sol agent when it is a `general-purpose` agent with the
+   required mutation tool. Otherwise launch another `general-purpose` Sol
    agent with the exact pins above and give it the adjudicated evidence.
-7. The Astra implementation agent must use the mutation tool actually present
+7. The Sol implementation agent must use the mutation tool actually present
    in its tool list. In Copilot CLI this is `apply_patch`, which performs file
    creation (`Add File`), editing (`Update File`), and deletion (`Delete File`).
-   Claude's `create` and `edit` tools are not Astra fallbacks.
-8. If the Astra implementation agent lacks mutation tools or permission,
+   Claude's `create` and `edit` tools are not Sol fallbacks.
+8. If the Sol implementation agent lacks mutation tools or permission,
    return ownership to the coordinator, which must launch or reuse a qualifying
-   exact-pinned Astra agent. If none is available, report a blocker rather than
+   exact-pinned Sol agent. If none is available, report a blocker rather than
    allowing an unpinned parent agent to implement.
 
 ## Prompt template for each independent researcher
 
 ```text
-You are the <GPT-6 Astra | Claude Opus 5> member of an independent tandem
+You are the <GPT-5.6 Sol | Claude Opus 5> member of an independent tandem
 research pass.
 
 Research question:
@@ -274,7 +276,7 @@ Decision gates:
 
 Tool contract:
 - Use only tools present in your actual tool list.
-- GPT-6 Astra searches with `rg`/`glob` and reads with `view`.
+- GPT-5.6 Sol searches with `rg`/`glob` and reads with `view`.
 - Claude Opus 5 searches with `grep`/`glob` and reads with `view`.
 - Search only explicit existing in-scope paths. Resolve uncertain paths with
   `glob`; do not recursively search the whole home directory.
@@ -298,8 +300,8 @@ Tandem research is complete only when:
 - cross-critique is complete;
 - material factual conflicts are resolved or explicitly left open;
 - citations/measurements for the final decision are verified;
-- the retained Astra agent has produced the final adjudication;
-- the final report distinguishes consensus, Astra adjudication, and
+- the retained Sol agent has produced the final adjudication;
+- the final report distinguishes consensus, Sol adjudication, and
   uncertainty;
 - any follow-on implementation is clearly gated and assigned only to an
-  exact-pinned GPT-6 Astra `general-purpose` agent.
+  exact-pinned GPT-5.6 Sol `general-purpose` agent.

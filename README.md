@@ -4,8 +4,8 @@ Version-controlled personal GitHub Copilot CLI skills and configuration.
 
 ## Skills
 
-- `skills/tandem-research` - Independent GPT-6 Astra and Claude Opus 5
-  research, cross-critique, evidence adjudication, and Astra-only
+- `skills/tandem-research` - Explicit-only GPT-5.6 Sol and Claude Opus 5
+  research, cross-critique, evidence adjudication, and Sol-only
   implementation.
 
 ## Install
