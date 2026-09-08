@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "type": "command",
+        "bash": "node \"$HOME/.copilot/skills/budget-workflow/scripts/budget.mjs\" hook",
+        "timeoutSec": 5
+      }
+    ]
+  }
+}

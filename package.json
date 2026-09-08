@@ -1,0 +1,21 @@
+{
+  "name": "copilot-budget-tools",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "budget": "node skills/budget-workflow/scripts/budget.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "ipaddr.js": "^2.5.0",
+    "linkedom": "^0.18.13",
+    "php-parser": "^3.7.0",
+    "tree-sitter-wasms": "^0.1.13",
+    "web-tree-sitter": "^0.20.8",
+    "zod": "^4.5.4"
+  }
+}

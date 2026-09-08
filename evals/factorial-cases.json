@@ -1,0 +1,118 @@
+{
+  "version": 1,
+  "purpose": "Fresh mixed-difficulty source-research tasks for profile x workflow evaluation; same source opportunity and explicit policy for every arm.",
+  "cases": [
+    {
+      "id": "ha-grid-cache",
+      "project": "ha",
+      "family": "content-sensitive-grid-measurement",
+      "ref": "ab84f9a",
+      "sources": ["src/components/core/DynamicGrid.tsx", "src/components/core/dynamicGridLayout.ts", "src/components/core/DynamicGrid.module.css"],
+      "question": "A rendering optimization would cache DynamicGrid layout by container width alone, remove label mutation/font-ready observations, and always fill the last row. Is that behavior-preserving? Trace the actual layout inputs and invalidation paths, distinguish maximum-cell-width from minimum-cell-width semantics, and propose a lower-risk way to reduce work with offline tests rather than claimed browser measurements.",
+      "criteria": [
+        {"id": "content-inputs", "critical": true, "text": "Reject width-only equivalence: label/content/font geometry and relevant props affect spans, wrapping or layout, so unchanged width does not imply unchanged result."},
+        {"id": "row-policy", "critical": true, "text": "Preserve configured last-row/fill policy; except-last and expanded fill-minimum behavior must not silently become always-filled rows."},
+        {"id": "width-semantics", "critical": false, "text": "Recognize maximum-cell-width uses a ceil-style request subject to configured bounds, not blindly floor(width/minimum-width)."},
+        {"id": "safe-optimization", "critical": false, "text": "Consider coalescing/reducing redundant measurement or preserving layoutsMatch equality bailouts while retaining needed mutation/font/resize invalidation; no invented speedup."}
+      ]
+    },
+    {
+      "id": "ha-phase-policy",
+      "project": "ha",
+      "family": "schedule-phase-availability",
+      "ref": "ab84f9a",
+      "sources": ["src/components/hass/bedTemperatureScope.ts", "src/components/hass/bedTemperatureScope.test.ts"],
+      "question": "A cleanup keeps schedule-phase parsing separate from control availability: outside remains available without a scheduled phase, known scheduled phases stay available, and unknown inputs remain disabled. It retains distinct outside-window and tonight service selectors. Is this compatible with the existing contract? Contrast it with deriving availability from Boolean(parsedPhase), and identify what these pure helpers do not prove about actual command execution.",
+      "criteria": [
+        {"id": "outside", "critical": true, "text": "Accept the separate-predicate design: outside is available even though its parsed scheduled phase is null; Boolean(parsedPhase) would incorrectly disable it."},
+        {"id": "invalid", "critical": true, "text": "Keep unknown/unavailable/preheating and non-string states unavailable instead of treating all null phases as outside."},
+        {"id": "normalization", "critical": false, "text": "Retain string trimming/case normalization and recognized bedtime/asleep/dawn phases, supported by the existing tests."},
+        {"id": "service-boundary", "critical": false, "text": "Distinguish outside-schedule and tonight service-name selection from backend execution, timing or persistence; pure helpers/tests cannot establish those runtime effects."}
+      ]
+    },
+    {
+      "id": "integration-public-status",
+      "project": "integration",
+      "family": "bounded-diagnostic-projection",
+      "ref": "7c24bfa",
+      "sources": ["custom_components/evershelf/processing_status.py", "custom_components/evershelf/binary_sensor.py"],
+      "question": "A diagnostics design keeps unavailable processing data distinct from a healthy zero-count state, exposes bounded counters and a generic public error message instead of backend error text, and treats an unneeded ontology provider as not failing. Is that supported by the current projection and binary-sensor consumers? Explain the boundaries and useful offline edge-case tests without claiming every malformed payload is harmless.",
+      "criteria": [
+        {"id": "availability", "critical": true, "text": "Distinguish processing_status_available=false from zero/false fallback metrics; processing-dependent sensors additionally gate availability instead of treating defaults as healthy evidence."},
+        {"id": "error-projection", "critical": true, "text": "Preserve generic public error replacement for raw backend errors rather than exposing backend message text through these public fields."},
+        {"id": "provider", "critical": false, "text": "Recognize provider health is true when not required and otherwise follows the provider health flag; do not infer a required-provider outage from a disabled runtime."},
+        {"id": "bounded-not-total", "critical": false, "text": "Describe bounded/allowlisted projection and unknown phase becoming degraded, while avoiding a universal claim that all malformed numeric/object inputs can never raise or misrepresent state."}
+      ]
+    },
+    {
+      "id": "integration-calendar-cache",
+      "project": "integration",
+      "family": "range-cache-calendar-ordering",
+      "ref": "7c24bfa",
+      "sources": ["custom_components/evershelf/calendar.py", "custom_components/evershelf/coordinator.py"],
+      "question": "To avoid repeated calendar fetches, a patch would treat _cached_events as the complete globally sorted expiry calendar, reuse it for any later requested range, and call its first upcoming entry the earliest expiry. Do the current data flow and cache establish those assumptions? Propose a range/refresh-aware alternative and distinguish source-visible all-day date behavior from unverified backend ordering.",
+      "criteria": [
+        {"id": "cache-scope", "critical": true, "text": "Reject complete-cache assumption: each async_get_events replaces _cached_events with the filtered result for that requested range."},
+        {"id": "ordering", "critical": true, "text": "event returns the first qualifying cached element without sorting/min selection; earliest chronology requires an ordering guarantee or explicit sorting that the shown code does not establish."},
+        {"id": "date-shape", "critical": false, "text": "Note date-only filtering and one-day event end construction, without inventing backend timezone/sort contracts or confusing cached range coverage with the full source response."},
+        {"id": "cache-policy", "critical": false, "text": "Propose explicit covered-range/freshness or coordinator-revision invalidation and chronological selection, with offline out-of-order and successive-range examples rather than simply suppressing fetches."}
+      ]
+    },
+    {
+      "id": "es-quantity-proposals",
+      "project": "evershelf",
+      "family": "quantity-advisory-model-fallback",
+      "ref": "52aa5495922307dc5dc8f3dfd51f1572255be430",
+      "sources": ["api/lib/recipes/quantity.php", "api/lib/recipes/quantity_proposals.php"],
+      "question": "An engineer proposes using a low-cost model only for unresolved quantity parsing of manual/local/generated ingredient text, while keeping deterministic parsing first, explicit proposal review, and advisory non-ranking metadata. Is this a defensible use of the existing pipeline? Identify the source/evidence and review gates that must be retained, and explain which broader variants would violate the current contract.",
+      "criteria": [
+        {"id": "fallback-scope", "critical": true, "text": "Conditionally accept only non-Cookidoo inputs whose deterministic parse is ambiguous or unparsed; do not use the fallback for already resolved parses or structured Cookidoo quantities."},
+        {"id": "evidence-validation", "critical": true, "text": "Preserve schema/input-hash checks and exact disjoint UTF-8 source spans proving proposed values, with closed statuses/units and no invented conversions or implicit units."},
+        {"id": "review-boundary", "critical": false, "text": "Validation stages a pending proposal; explicit bounded actor/reason review moves pending once to approved/rejected. Do not claim validation or review itself automatically updates recipe data."},
+        {"id": "ranking-isolation", "critical": false, "text": "Keep stored parse metadata advisory and ranking_eligible=false; it must not directly overwrite ranking quantity/unit facts."}
+      ]
+    },
+    {
+      "id": "es-snapshot-cursor",
+      "project": "evershelf",
+      "family": "snapshot-bound-catalog-pagination",
+      "ref": "52aa5495922307dc5dc8f3dfd51f1572255be430",
+      "sources": ["api/lib/recipes/scores.php"],
+      "question": "An engineer proposes removing browse continuation cursors and using page/offset alone. Each page would run deterministic ORDER BY against the current ready score revision and current catalog, supposedly making duplicates or omissions impossible. Is that equivalent? Analyze changed query criteria, changing data between pages and mutation during a request; identify the minimum safe continuation contract visible in the source.",
+      "criteria": [
+        {"id": "criteria-binding", "critical": true, "text": "Reject stable ordering as a substitute for normalized query identity/criteria_hash binding; changed semantic query/sort/filter criteria must not silently reuse a continuation."},
+        {"id": "snapshot-binding", "critical": true, "text": "Explain that revision_id, catalog_revision, cursor_revision and catalog_max_id pin the continuation in addition to offset; current-state paging is not equivalent."},
+        {"id": "mutation-fences", "critical": false, "text": "Preserve cursor-revision checks both before reading continuation and after query work, so an in-request catalog mutation requires restart rather than mixed results."},
+        {"id": "safe-alternative", "critical": false, "text": "Retain opaque next_cursor/snapshot identity for stable continuation; distinguish any supported unbound offset request from a snapshot-stable guarantee."}
+      ]
+    },
+    {
+      "id": "fst-denominator",
+      "project": "fst",
+      "family": "solo-family-denominator-cardinality",
+      "ref": "2dfb035ea2277e63c8392b1e787da7570ada14b9",
+      "sources": ["FSTService/Scraping/SoloFamilyRankingBuilder.cs", "FSTService.Tests/Unit/SoloFamilyRankingBuilderTests.cs"],
+      "question": "A ranking cleanup removes the canonical-row denominator override, uses only each instrument's current catalog count, and clamps Coverage/FcRate to 1 when retained rows carry larger counts. Would that preserve the ranking meaning? Explain catalog slots, canonical cardinality, composite scopes and impossible produced rows, distinguishing builder-level evidence from publication guarantees that would require its caller.",
+      "criteria": [
+        {"id": "catalog-only-rejected", "critical": true, "text": "Reject catalog-only denominators: effective per-instrument cardinality is the maximum of nonnegative catalog and canonical-row maxima, which may exceed a lagging catalog count."},
+        {"id": "scope-cardinality", "critical": false, "text": "Composite scope denominator sums effective instrument denominators, preserving missing chart slots even without an account/instrument row."},
+        {"id": "metric-semantics", "critical": false, "text": "Missing songs affect underlying skill/weighted/max-score calculations as well as Coverage/FcRate; clamping only rates cannot repair inconsistent denominators."},
+        {"id": "violation-signalling", "critical": true, "text": "Preserve explicit impossible-row/rate violation signalling rather than hiding it with clamps. The shown builder reports violations; do not claim this alone proves every caller blocks publication."}
+      ]
+    },
+    {
+      "id": "fst-artifact-identity",
+      "project": "fst",
+      "family": "optimal-path-artifact-identity",
+      "ref": "2dfb035ea2277e63c8392b1e787da7570ada14b9",
+      "sources": ["FSTService/Scraping/PathArtifactResolver.cs", "FSTService/Scraping/PathGenerationModels.cs", "FSTService.Tests/Unit/PathArtifactValidationTests.cs"],
+      "question": "A performance proposal reuses an existing immutable optimal-path generation only when IsGenerationComplete validates it against current path-generation state, instead of treating song ID plus DAT hash as sufficient. Is reusing that gate a defensible strategy? Identify the identity, profile and artifact checks that make it safe, failure behavior to retain, and what remains unproven about performance or upstream delivery.",
+      "criteria": [
+        {"id": "runtime-identity", "critical": true, "text": "Conditionally accept full manifest/state matching across input hash/source timestamp, solver version/binary/profile, expected instruments and positive expert maxima; reject DAT-hash-only identity."},
+        {"id": "profile-contract", "critical": true, "text": "Preserve profile-dependent schema-v2 requirements and authored nonempty expert plastic-drum fills for the approved V4 profile, rather than treating profile as cosmetic metadata."},
+        {"id": "tree-integrity", "critical": false, "text": "Keep regular/non-reparse exact expected file-tree and bounded JSON/PNG validation plus deterministic tree identity; extra/missing/substituted files are not valid cache hits."},
+        {"id": "failure-behavior", "critical": false, "text": "Validator, identity/score, malformed-artifact and I/O/access failures stay non-reusable; do not convert errors to a success-shaped reuse result or invent a speedup."}
+      ]
+    }
+  ]
+}
