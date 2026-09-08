@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "repo-ingredient-fields",
+      "project": "integration",
+      "mode": "repository",
+      "question": "Find the integration's ingredient decision validation. Can a caller send selected_product_id=null or expected_target_product_id=null with any action and rely on irrelevant fields being ignored? Explain the actual action/key-presence rules, reusable validation and what this source cannot establish about backend execution.",
+      "oracleSources": ["custom_components/evershelf/recipe_api.py", "custom_components/evershelf/__init__.py"],
+      "criteria": [
+        {"id":"selection","critical":true,"text":"Selected product ID is required and positive non-boolean for select_inventory_product; presence on other actions is rejected even if null."},
+        {"id":"expected","critical":true,"text":"Distinguish layers: the pure builder ignores optional None for reject_current_match and rejects the key on other actions; the registered service schema can reject an explicitly provided null. Do not call the field universally mandatory or null universally ignored."},
+        {"id":"shared-base","critical":false,"text":"Identify reuse of shared feedback/identity/idempotency validation rather than inventing a second frontend contract."},
+        {"id":"boundary","critical":true,"text":"Separate request shape from unproven backend transaction/concurrency semantics; no live operations or invented test results."}
+      ]
+    },
+    {
+      "id": "repo-feature-resolution",
+      "project": "fst",
+      "mode": "repository",
+      "question": "Locate the backend feature endpoint and browser feature-state handling. Is resolved=true sufficient to show App Manual? Analyze a cold request error with no data, a strict boolean versus string payload, and existing cached true data. Distinguish what the local expressions prove from library/runtime behavior not established here.",
+      "oracleSources": ["FSTService/Api/FeatureEndpoints.cs","FortniteFestivalWeb/src/contexts/FeatureFlagsContext.tsx"],
+      "criteria": [
+        {"id":"resolved","critical":true,"text":"Resolved means not pending, not enabled or successful; cold error/no data can be resolved with flag false."},
+        {"id":"strict","critical":true,"text":"Feature activation requires appManual===true, not truthiness of strings or resolved status."},
+        {"id":"cached","critical":false,"text":"If query.data remains true, the local expression stays true regardless of error status; do not claim all errors unconditionally clear cached flags."},
+        {"id":"owner","critical":false,"text":"Connect endpoint's options projection to client/provider behavior and propose focused mocked checks without claiming live deployment state."}
+      ]
+    },
+    {
+      "id": "external-sqlite-foreign-keys",
+      "mode": "external",
+      "question": "Research SQLite's documented foreign-key enforcement behavior. Can PRAGMA foreign_keys=ON inside an already-open transaction enable enforcement immediately and for all future connections? Explain scope, transaction effects and safe verification rather than relying on assumed defaults.",
+      "web": {
+        "allowedHosts":["sqlite.org","www.sqlite.org","github.com"],
+        "persistTextHosts":["sqlite.org","www.sqlite.org"],
+        "maxAgeSeconds":86400,
+        "seeds":[{"url":"https://www.sqlite.org/docs.html","title":"SQLite documentation index"}],
+        "queries":{"sqlite":{"provider":"github","text":"sqlite in:name"}}
+      },
+      "oracleUrls":["https://www.sqlite.org/foreignkeys.html"],
+      "criteria":[
+        {"id":"connection","critical":true,"text":"Enforcement setting is per connection, not a global default applied to every future connection."},
+        {"id":"transaction","critical":true,"text":"Changing foreign_keys within a multi-statement transaction has no effect; configure/check outside the active transaction."},
+        {"id":"verify","critical":false,"text":"Check actual PRAGMA state and build/support requirements; do not assume a permanent universal default."},
+        {"id":"calibration","critical":true,"text":"Ground claims in SQLite documentation and distinguish documented behavior from unperformed deployment tests."}
+      ]
+    },
+    {
+      "id": "external-taskgroup",
+      "mode": "external",
+      "question": "Using current Python documentation, compare asyncio TaskGroup with gather when one child raises a non-cancellation exception. Would gather be a drop-in replacement if we require sibling cancellation and waiting for cleanup? Explain exception aggregation and why swallowing cancellation can be unsafe.",
+      "web":{
+        "allowedHosts":["docs.python.org","github.com"],
+        "persistTextHosts":["docs.python.org"],
+        "maxAgeSeconds":86400,
+        "seeds":[{"url":"https://docs.python.org/3/library/asyncio.html","title":"Python asyncio documentation"}],
+        "queries":{"python":{"provider":"github","text":"cpython in:name"}}
+      },
+      "oracleUrls":["https://docs.python.org/3/library/asyncio-task.html"],
+      "criteria":[
+        {"id":"siblings","critical":true,"text":"TaskGroup cancels remaining siblings on an ordinary failure and waits for completion/cleanup; default gather does not generally provide the same sibling-cancellation contract."},
+        {"id":"aggregation","critical":false,"text":"Describe grouped non-cancellation exceptions and qualify cancellation/special-base-exception behavior without claiming every exception is wrapped identically."},
+        {"id":"cancel","critical":true,"text":"Do not recommend swallowing CancelledError as generally safe; cleanup should preserve cancellation propagation/structured-concurrency semantics."},
+        {"id":"fit","critical":false,"text":"Reject drop-in equivalence under the stated requirements and suggest tests/explicit semantics rather than invented execution results."}
+      ]
+    },
+    {
+      "id": "hybrid-wal",
+      "project":"evershelf",
+      "mode":"hybrid",
+      "question":"Investigate whether merely enabling SQLite WAL would fix EverShelf's queue writer contention. Locate current database configuration and transaction/retry helpers before researching official SQLite concurrency behavior. Recommend reuse or a targeted investigation, not a speculative database rewrite or unmeasured throughput guarantee.",
+      "web":{
+        "allowedHosts":["sqlite.org","www.sqlite.org","github.com"],
+        "persistTextHosts":["sqlite.org","www.sqlite.org"],
+        "maxAgeSeconds":86400,
+        "seeds":[{"url":"https://www.sqlite.org/docs.html","title":"SQLite documentation index"}],
+        "queries":{"sqlite":{"provider":"github","text":"sqlite in:name"}}
+      },
+      "oracleSources":["api/database.php"],
+      "oracleUrls":["https://www.sqlite.org/isolation.html","https://www.sqlite.org/wal.html"],
+      "criteria":[
+        {"id":"existing","critical":true,"text":"Inspect and account for existing WAL/busy-timeout/transaction helpers; do not propose WAL as wholly absent without source evidence."},
+        {"id":"writers","critical":true,"text":"WAL allows reader/writer concurrency but does not permit multiple simultaneous writers; it alone cannot guarantee elimination of contention."},
+        {"id":"reuse","critical":false,"text":"Map the external finding back to short transactions, existing retry/timeout mechanisms and measured bottlenecks rather than blindly duplicating/replacing infrastructure."},
+        {"id":"measurement","critical":true,"text":"No live mutation or claimed performance win; propose copied/controlled measurements and leave actual workload/locking state unknown."}
+      ]
+    },
+    {
+      "id":"hybrid-layout-effects",
+      "project":"ha",
+      "mode":"hybrid",
+      "question":"Would replacing DynamicGrid's useLayoutEffect with useEffect be a behavior-preserving rendering-cost optimization? Locate its measurement/cleanup paths and compare them to React's documented effect timing. Identify existing reusable safeguards and what still needs browser validation rather than promising lower cost or no layout shift.",
+      "web":{
+        "allowedHosts":["raw.githubusercontent.com","react.dev","github.com"],
+        "persistTextHosts":["raw.githubusercontent.com","react.dev"],
+        "maxAgeSeconds":86400,
+        "seeds":[{"url":"https://raw.githubusercontent.com/reactjs/react.dev/main/src/content/reference/react/useLayoutEffect.md","title":"React useLayoutEffect reference source"}],
+        "queries":{"react_docs":{"provider":"github","text":"react.dev in:name"}}
+      },
+      "oracleSources":["src/components/core/DynamicGrid.tsx"],
+      "oracleUrls":["https://raw.githubusercontent.com/reactjs/react.dev/main/src/content/reference/react/useLayoutEffect.md"],
+      "criteria":[
+        {"id":"timing","critical":true,"text":"Recognize before-paint layout measurement versus ordinary effect timing; do not claim a blind substitution preserves visible layout behavior."},
+        {"id":"reuse","critical":false,"text":"Identify current observers/equality bailout/font-ready lifecycle or cleanup safeguards instead of proposing all of them as new."},
+        {"id":"tradeoff","critical":false,"text":"Discuss blocking-paint cost and a targeted alternative such as reducing redundant measurement while preserving necessary timing."},
+        {"id":"validation","critical":true,"text":"Keep source versus runtime evidence separate, propose actual required browser/geometry checks for later approved work, and make no measured speedup or visual-parity claim."}
+      ]
+    }
+  ]
+}

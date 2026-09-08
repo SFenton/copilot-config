@@ -1,0 +1,175 @@
+{
+  "version": 1,
+  "purpose": "Hidden-rubric local repository research challenges, not an open-web or full tandem benchmark",
+  "cases": [
+    {
+      "id": "ha-lifecycle",
+      "project": "ha",
+      "family": "frame-lifecycle",
+      "ref": "ab84f9a",
+      "sources": ["src/lifecycle/reactDashboardLifecycle.ts", "src/panel/sfentonReactPanel.ts", "src/panel/sfentonReactAppCard.ts"],
+      "question": "A proposal preserves BFCache entries on persisted pagehide, coordinates replacement-instance disposal through the same-origin host, and avoids rebuilding the iframe merely because the HA socket reconnects. Is that a defensible direction? Investigate where current code supports it, remaining lifecycle caveats, and observations that distinguish a socket reconnect from an actual remount. Do not claim you ran a browser.",
+      "criteria": [
+        {"id": "bfcache", "critical": true, "text": "Reject unconditional disposal on pagehide: persisted events deliberately preserve a BFCache entry."},
+        {"id": "replacement", "critical": true, "text": "Explain superseding instance disposal and identity-guarded deregistration so old cleanup cannot remove the new registration."},
+        {"id": "host", "critical": false, "text": "Account for same-origin top-window coordination and safe current-window fallback rather than global cross-origin access."},
+        {"id": "evidence", "critical": true, "text": "Distinguish socket changes from iframe identity/timeOrigin and lifecycle records; do not claim every reconnect rebuilds a frame."}
+      ]
+    },
+    {
+      "id": "ha-garage",
+      "project": "ha",
+      "family": "physical-command-ack",
+      "ref": "ab84f9a",
+      "sources": ["src/components/hass/useGarageDoorCommand.ts", "src/components/hass/garageDoorState.ts", "src/constants/garageDoors.ts"],
+      "question": "To make the garage control feel faster, a patch would treat a resolved HA service promise as the door reaching its target, immediately clear pending feedback, and remove request IDs and confirmation timeout. Assess correctness under late promises, repeated taps, disconnects and external state changes. Identify the actual command boundary and a safer simplification, if any.",
+      "criteria": [
+        {"id": "ack", "critical": true, "text": "Service acknowledgement is not physical completion; retain live-state confirmation or timeout."},
+        {"id": "epoch", "critical": true, "text": "Request identity prevents late callbacks from affecting newer requests; removing it is unsafe."},
+        {"id": "timers", "critical": false, "text": "Distinguish feedback elapsed, lockout elapsed, service acknowledgement and confirmation timers rather than equating all delays."},
+        {"id": "failure", "critical": true, "text": "Account for disconnect/error reset and external live-state change clearing active work; React sends one HA cover command rather than multi-entity effects."}
+      ]
+    },
+    {
+      "id": "ha-preload",
+      "project": "ha",
+      "family": "preload-mount-semantics",
+      "ref": "ab84f9a",
+      "sources": ["src/components/shell/DashboardPageLoadGate.tsx", "src/components/shell/DashboardPageLoading.tsx", "src/constants/loading.ts", ".github/copilot-instructions.md"],
+      "question": "A loading-spinner optimization proposes mounting live camera and polling children behind data-content-visible=false during route preload, reasoning that hidden content cannot perform I/O. It also proposes restarting the page gate whenever settled becomes false after the page has loaded. Does the actual gate enforce these assumptions? Separate its behavior from child responsibilities and propose verification.",
+      "criteria": [
+        {"id": "mounted", "critical": true, "text": "Children render regardless of visibility; a CSS/data flag does not suppress effects, network or camera work."},
+        {"id": "preload", "critical": true, "text": "Preload starts content phase and skips gate timers; inert child preload must be explicit, not inferred from this gate."},
+        {"id": "settled", "critical": false, "text": "Once phase is content, changes to settled do not automatically re-enter loading in current code."},
+        {"id": "proof", "critical": true, "text": "Require no-I/O preload tests and route/live-update behavior checks; do not assert screenshots prove absence of I/O."}
+      ]
+    },
+    {
+      "id": "es-job-fences",
+      "project": "evershelf",
+      "family": "lease-fencing",
+      "ref": "52aa549",
+      "sources": ["api/lib/recipes/jobs.php"],
+      "question": "A worker refactor would hold one SQLite transaction while a slow provider request runs, then apply the response using job ID alone. It would also replace the current batch selection with plain priority DESC ordering. Research the concurrency and scheduling tradeoffs from the source; distinguish worker lease ownership, per-job/request fencing, stale results and fairness. Do not run the worker or database.",
+      "criteria": [
+        {"id": "transaction", "critical": true, "text": "Reject holding SQLite/caller transactions or queue locks during provider I/O; claim/commit and bounded apply are distinct phases."},
+        {"id": "fences", "critical": true, "text": "Job ID alone is insufficient: lease identity/generation and request generation/epoch/hash checks protect newer work from stale outcomes."},
+        {"id": "fairness", "critical": false, "text": "Current claim reserves an interactive/high-priority slot and gives remaining slots to lower priority before backfilling; strict priority can starve background work."},
+        {"id": "cases", "critical": true, "text": "Propose stale lease, newer request and slow-provider interleavings on copied fixtures; never authorize live worker or database mutation."}
+      ]
+    },
+    {
+      "id": "es-time-proposals",
+      "project": "evershelf",
+      "family": "source-time-semantics",
+      "ref": "52aa549",
+      "sources": ["api/lib/recipes/time_facts.php", ".github/copilot-instructions.md"],
+      "question": "A budget-saving design keeps deterministic parsing first, derives inactive time from total minus active only when prep/cook fields are absent, and stages unresolved non-Cookidoo prep/cook model results as review-only hash-bound proposals with exact source evidence. Is that sound and already supported? Identify limits, explicit-value precedence, and unsafe expansions that must remain excluded.",
+      "criteria": [
+        {"id": "inactive", "critical": true, "text": "Total minus active derives inactive/rest time, not cook time; explicit inactive values and prep/cook-field conditions matter."},
+        {"id": "proposal", "critical": true, "text": "Recognize the described deterministic-first, review-only design as compatible; fallback is only for unresolved prep_time/cook_time, never automatic recipe mutation or blanket rejection of all proposals."},
+        {"id": "provider", "critical": true, "text": "Cookidoo is explicitly excluded from time-model proposals; do not inspect official steps or manufacture provider cooking facts."},
+        {"id": "provenance", "critical": false, "text": "Describe source hash/exact UTF-8 evidence span and abstention when duration is not explicit; prefer deterministic parsing first."}
+      ]
+    },
+    {
+      "id": "es-cookability",
+      "project": "evershelf",
+      "family": "identity-vs-ranking",
+      "ref": "52aa549",
+      "sources": ["api/lib/recipes/search.php", ".github/copilot-instructions.md"],
+      "question": "An expiring inventory item has a high lexical match score to a required ingredient but only an ancestor/component relationship and incompatible units. Could increasing expiry weight make the recipe correctly cookable? Explain hard constraints versus ranking preferences and how to investigate a surprising result without weakening the identity model or hydrating the full catalog.",
+      "criteria": [
+        {"id": "identity", "critical": true, "text": "High lexical/model score or ancestry/component relations cannot establish identity-satisfying required-ingredient coverage."},
+        {"id": "quantity", "critical": true, "text": "Known incompatible units yield insufficient quantity/unit mismatch; distinguish unknown quantities from known incompatibility."},
+        {"id": "ranking", "critical": false, "text": "Missing-required gating and coverage cannot be repaired by tuning expiry weight; ranking preference differs from cookability truth."},
+        {"id": "boundary", "critical": true, "text": "Investigate backend matching/materialization under copied fixtures and frozen gold with bounded SQL; do not move full-catalog ranking or permissive matching into React/PHP hydration."}
+      ]
+    },
+    {
+      "id": "integration-capabilities",
+      "project": "integration",
+      "family": "capability-provenance",
+      "ref": "7c24bfa",
+      "sources": ["custom_components/evershelf/coordinator.py", "custom_components/evershelf/const.py"],
+      "question": "An availability design keeps known positive capability flags through transient probe errors, but distinguishes unknown/expired absence from authoritative unsupported status. Is that the right direction and does the coordinator already implement it? Assess monotonic freshness, cooldown, concurrent probes and require_fresh behavior, including tests for the boundaries.",
+      "criteria": [
+        {"id": "preserve", "critical": true, "text": "Transient probe failure preserves known-good capability flags; it does not prove unsupported."},
+        {"id": "negative", "critical": true, "text": "Only a fresh successful snapshot supports an unsupported answer for an absent capability; stale/unknown is unavailable."},
+        {"id": "force", "critical": false, "text": "require_fresh forces a probe and returns unavailable on failure even if the old positive capability remains stored."},
+        {"id": "concurrency", "critical": false, "text": "Discuss lock/recheck, last-attempt cooldown versus last-success freshness, and monotonic time rather than a single boolean cache."}
+      ]
+    },
+    {
+      "id": "integration-atomic-decision",
+      "project": "integration",
+      "family": "ingredient-command-boundary",
+      "ref": "7c24bfa",
+      "sources": ["custom_components/evershelf/recipe_api.py", ".github/copilot-instructions.md"],
+      "question": "To reduce endpoint count, a frontend wants to replace the atomic ingredient-decision command with two independent availability and identity requests and omit the feedback token/expected target. Is that equivalent under concurrent inventory changes? Identify what the request builder actually validates, what must be backend-owned, and what cannot be proven from the supplied code alone.",
+      "criteria": [
+        {"id": "atomic", "critical": true, "text": "Do not claim independent requests are equivalent to the atomic v2 command under races or partial failure; preserve backend command ownership."},
+        {"id": "evidence", "critical": true, "text": "Feedback/ingredient/idempotency identities are required; expected target applies to reject_current_match, not universally required or freely applied to every action."},
+        {"id": "types", "critical": false, "text": "Selected product ID is action-specific and positive non-boolean; extra selected/expected fields are rejected for unrelated actions."},
+        {"id": "limits", "critical": true, "text": "A request builder cannot prove backend transaction/fencing implementation; explicitly require backend evidence and interleaving tests before an equivalence claim."}
+      ]
+    },
+    {
+      "id": "integration-mirror",
+      "project": "integration",
+      "family": "cross-system-idempotency",
+      "ref": "7c24bfa",
+      "sources": ["custom_components/evershelf/__init__.py", ".github/copilot-instructions.md"],
+      "question": "The backend grocery mutation succeeded but one HA todo mirror write failed. A simplification proposes retrying everything as a new action, mirroring every recipe ingredient, and retaining dedupe state only in memory. Research the replay and partial-failure implications and recommend a safe response/retry contract across reloads.",
+      "criteria": [
+        {"id": "boundary", "critical": true, "text": "Trust backend per-item outcomes; do not blindly re-run a successful backend mutation under a fresh idempotency key or mirror every ingredient."},
+        {"id": "persistence", "critical": true, "text": "Successful mirror outcomes are persisted with bounded TTL/scoped identity across reloads; in-memory-only dedupe loses replay safety."},
+        {"id": "names", "critical": false, "text": "Pre-read pending todo names and case-fold/dedupe; source amount text is not a numeric todo quantity."},
+        {"id": "partial", "critical": true, "text": "Preserve partial backend/mirror outcomes and storage errors, retry only eligible failures with stable identities, and do not promise cross-system exactly-once atomicity."}
+      ]
+    },
+    {
+      "id": "fst-cache-safety",
+      "project": "fst",
+      "family": "publication-cache",
+      "ref": "2dfb035e",
+      "sources": ["FSTService/Api/PublicationApiResponseCacheService.cs", "FSTService/Api/CacheHelper.cs"],
+      "question": "Could we reduce cache write overhead by returning an unchanged durable response when publication, ETag and payload bytes match, while preserving safety checks? Determine whether this fast path already exists and when it is safe. Compare it with URL-only L1 keys, pre-write-only safety validation and reusing ETags after projection; propose a matched benchmark without inventing a speedup.",
+      "criteria": [
+        {"id": "keys", "critical": true, "text": "Publication ID and safety revision belong in cache identity/invalidation; URL alone can mix publication or safety epochs."},
+        {"id": "race", "critical": true, "text": "Keep before/after freeze, failed-candidate isolation, revision and expected-publication checks around write-through; the pre-check alone cannot close a race."},
+        {"id": "etag", "critical": true, "text": "A transformed payload needs a corresponding ETag/content hash rather than blindly reusing the untransformed validator."},
+        {"id": "measurement", "critical": false, "text": "Recognize the existing unchanged-content fast path rather than rejecting all caching or proposing it as entirely new; require matched correctness/performance evidence without fabricated speedups."}
+      ]
+    },
+    {
+      "id": "fst-retention",
+      "project": "fst",
+      "family": "retention-authority",
+      "ref": "2dfb035e",
+      "sources": ["FSTService/Persistence/Maintenance/SnapshotGenerationRetentionPlanner.cs", "docs/database/SnapshotGenerationRetirementControlPlane.md", "docs/operations/live-safety.md"],
+      "question": "Storage is tight. A successful retention plan is being treated as authorization to immediately drop all listed generations during an active scrape. Does the planner establish that authority? Distinguish observation/reporting, quiescence/publication prerequisites and destructive execution proof; propose the smallest safe next step.",
+      "criteria": [
+        {"id": "authority", "critical": true, "text": "Report-only planning is not destructive execution authorization; a successful plan does not permit DROP."},
+        {"id": "quiescence", "critical": true, "text": "Account for background-work quiescence and completed scores-changed broadcast tied to the triggering scrape."},
+        {"id": "evidence", "critical": true, "text": "Require current exact-object/provenance/restore/live-scrape parity and live health/resource gates, not old plan presence alone."},
+        {"id": "safe-next", "critical": false, "text": "Recommend bounded read-only verification/defer unsafe active-scrape work; preserve required FST drive placement and no invented freed-space guarantees."}
+      ]
+    },
+    {
+      "id": "fst-fade-evidence",
+      "project": "fst",
+      "family": "rendering-causal-adjudication",
+      "ref": "1b5d7885086a09b5f4d9eee30be76b340d1a6c0f",
+      "sources": ["FortniteFestivalWeb/src/hooks/ui/useScrollMask.ts", "FortniteFestivalWeb/src/hooks/ui/useProximityGlow.ts"],
+      "observations": "Archived observations are supplied as premises, not freshly verified browser measurements: a pre-rAF inline-style sample showed an error equal to wheel delta; 33 normal-CPU and 42 throttled captured Chromium frames showed no sampled mask drift. An old row kept glow for 1.1 seconds after a 240px wheel scroll moved it away from a stationary pointer; moving the pointer one pixel cleared it. The exact device/reproduction of the operator's original impression was unspecified. A colleague calls main-thread mask lag the proven primary cause and recommends removing virtualization, plus widening the fade because a row cannot fade uniformly over less than its own height.",
+      "question": "Adjudicate the colleague's causal and performance claims against the source and supplied observations. Explain what could make bright child details appear to linger, identify the strongest concrete defect and minimally disruptive fix, and state what the observations do not establish. Do not invent additional measurements.",
+      "criteria": [
+        {"id": "causal", "critical": true, "text": "Pre-rAF stale styles do not prove visible presented-frame lag; downgrade the primary lag claim given captured-frame counterevidence without claiming every device/frame is proven correct."},
+        {"id": "hover", "critical": true, "text": "Identify stale stationary-pointer glow updated on mouse movement rather than scroll, propose bounded clearing/invalidation of pending work, and limit the claim to relevant desktop behavior."},
+        {"id": "perception", "critical": false, "text": "Explain spatial mask and contrast/threshold differences without asserting children escape compositing; preserve virtualization absent contrary evidence."},
+        {"id": "ramp", "critical": false, "text": "A fade zone wider than a row is not a mathematical requirement; curve/whole-row choices are visual tradeoffs, not guaranteed performance or perception fixes."}
+      ]
+    }
+  ]
+}
