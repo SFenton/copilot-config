@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "runStudy": false,
+  "authorizedModelCalls": 0,
+  "sealedEvidence": {
+    "label": "reused",
+    "source": "operator-adjudicated sealed v2 opportunity study",
+    "baseline": {
+      "calls": 120,
+      "credits": 608.597
+    },
+    "challenger": {
+      "calls": 120,
+      "credits": 383.86404
+    },
+    "mandatoryJudge": {
+      "calls": 120,
+      "credits": 598.2425
+    }
+  },
+  "topologies": [
+    {
+      "id": "direct-frontier-baseline",
+      "description": "Direct frontier owner with deterministic evidence and validation."
+    },
+    {
+      "id": "research-spec-medium-cheap-review",
+      "description": "Conditional research/specification, medium coordination, bounded cheap implementation, and medium review."
+    },
+    {
+      "id": "medium-owner-cheap-worker-medium-review",
+      "description": "Medium owner decomposes known work, cheap worker stages a bounded artifact, and a medium reviewer accepts or requests one revision."
+    },
+    {
+      "id": "medium-owner-only",
+      "description": "Project-qualified medium owner completes known-pattern work without a cheap implementation leg."
+    }
+  ],
+  "requiredLegClasses": [
+    "planning",
+    "evidence",
+    "implementation",
+    "deterministic-validation",
+    "review",
+    "revision",
+    "grading",
+    "failure",
+    "fallback",
+    "escalation",
+    "release"
+  ]
+}

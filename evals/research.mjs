@@ -430,7 +430,7 @@ export function report(root) {
       'Worst-of-two blinded model judges; disagreements block promotion', 'No solver prompt tuning or repair within this batch'] };
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url))) {
   try {
     const [command, ...args] = process.argv.slice(2);
     let result;

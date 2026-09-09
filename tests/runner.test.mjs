@@ -2,19 +2,20 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { invocation, researchToolRequestAllowed, verifyCorpus, verifyEvidencePacket,
   terminateOwnedProcessTree, parseRunEvents } from '../skills/budget-workflow/scripts/run-leaf.mjs';
+import { resolvedConfiguration } from '../skills/budget-workflow/scripts/workflow.mjs';
 import { packet } from '../skills/budget-workflow/scripts/budget.mjs';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
+import { makeScratch, scratchPath } from './helpers/scratch.mjs';
 
 const request = { prompt: 'Summarize supplied evidence', sanitized: true, model: 'gpt-5.4-mini',
   maxCredits: 30, timeoutSeconds: 60, effort: 'medium', context: 'default' };
 
 test('leaf exposes only denied documentation schema, no MCPs, with bounded execution', () => {
-  const args = invocation(request, '/tmp/evidence', ['hass', 'plex']);
+  const args = invocation(request, scratchPath('evidence'), ['hass', 'plex']);
   assert.ok(args.includes('--available-tools'));
   assert.ok(args.includes('fetch_copilot_cli_documentation'));
   assert.ok(args.includes('--deny-tool=fetch_copilot_cli_documentation'));
@@ -40,7 +41,7 @@ test('research mode exposes only bounded filesystem discovery and audits request
 });
 
 test('research corpus must remain hash-identical and contained', t => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'research-corpus-test-'));
+  const root = makeScratch('research-corpus-test-');
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.writeFileSync(path.join(root, 'a.txt'), 'frozen');
   const sha256 = crypto.createHash('sha256').update('frozen').digest('hex');
@@ -60,7 +61,7 @@ test('research corpus must remain hash-identical and contained', t => {
 });
 
 test('HydraFusion preview does not receive unsupported effort', () => {
-  const args = invocation({ ...request, model: 'hydrafusion' }, '/tmp/evidence');
+  const args = invocation({ ...request, model: 'hydrafusion' }, scratchPath('evidence'));
   assert.ok(args.includes('--experimental'));
   assert.ok(!args.includes('--effort'));
 });
@@ -69,7 +70,32 @@ test('leaf rejects silent budget, model, payload and timeout substitutions', () 
   for (const change of [
     { maxCredits: undefined }, { maxCredits: 1 }, { maxCredits: Infinity }, { model: 'auto' },
     { timeoutSeconds: 0 }, { sanitized: false }, { context: 'unknown' }, { prompt: 'x'.repeat(65000) },
-  ]) assert.throws(() => invocation({ ...request, ...change }, '/tmp/evidence'));
+  ]) assert.throws(() => invocation({ ...request, ...change }, scratchPath('evidence')));
+});
+
+test('provisional worker candidates are explicit supported model pins', () => {
+  for (const model of ['gpt-5-mini', 'gpt-5.4-mini', 'gemini-3.8-flash', 'mai-code-1.1-flash']) {
+    const args = invocation({ ...request, model }, scratchPath('evidence'));
+    assert.ok(args.includes(model));
+  }
+});
+
+test('expanded worker candidates preserve explicit model pins and HydraFusion experimental mode', () => {
+  for (const model of [
+    'mai-code-1-flash-picker',
+    'gemini-3.5-flash',
+    'gemini-3.6-flash',
+    'gemini-3.7-flash',
+    'claude-haiku-4.5',
+  ]) {
+    const args = invocation({ ...request, model }, scratchPath('output'));
+    assert.deepEqual(args.slice(args.indexOf('--model'), args.indexOf('--model') + 2), ['--model', model]);
+    assert.equal(args.includes('--experimental'), false);
+    assert.equal(args.includes('--effort'), model !== 'claude-haiku-4.5');
+  }
+  const hydra = invocation({ ...request, model: 'hydrafusion' }, scratchPath('output'));
+  assert.equal(hydra.includes('--experimental'), true);
+  assert.equal(hydra.includes('--effort'), false);
 });
 
 test('timed-out logs tolerate only a flagged incomplete final event', () => {
@@ -80,9 +106,39 @@ test('timed-out logs tolerate only a flagged incomplete final event', () => {
   assert.throws(() => parseRunEvents('bad\n{"type":"ok"}', true));
 });
 
+test('leaf runtime configuration requires exact resolved event fields', () => {
+  const event = {
+    type: 'subagent.configured',
+    data: {
+      model: request.model,
+      reasoningEffort: request.effort,
+      contextTier: request.context,
+    },
+  };
+  assert.equal(resolvedConfiguration([event], {
+    model: request.model,
+    effort: request.effort,
+    context: request.context,
+  }).model, request.model);
+  assert.throws(() => resolvedConfiguration([], request), /Exactly one/);
+});
+
+test('CLI entry points execute through installed-style symlink paths', t => {
+  const root = makeScratch('budget-cli-link-');
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  for (const name of ['budget.mjs', 'opportunities.mjs']) {
+    const source = path.resolve('skills/budget-workflow/scripts', name);
+    const link = path.join(root, name);
+    fs.symlinkSync(source, link);
+    const result = spawnSync(process.execPath, [link], { encoding: 'utf8' });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, new RegExp(`^${name.replace('.mjs', '')}:`));
+  }
+});
+
 test('owned process-group termination also stops the CLI-like grandchild',
   { skip: process.platform !== 'linux', timeout: 5000 }, async t => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'budget-process-tree-'));
+    const dir = makeScratch('budget-process-tree-');
     const info = path.join(dir, 'pids.json');
     const child = spawn(process.execPath, ['-e', `
       const fs = require('node:fs');

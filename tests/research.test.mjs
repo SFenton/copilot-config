@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { makeScratch } from './helpers/scratch.mjs';
 import { prepare, loadCase, validateGrade, regressionUpperBound, projectVerdict,
   anchorAnswer, parseAssessorJson, validateAnchoredGrade } from '../evals/research.mjs';
 
@@ -60,7 +60,7 @@ test('paragraph anchors resolve deterministic original evidence and reject cross
 });
 
 test('prepare seals private criteria separately from source-only solver corpus', t => {
-  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'research-seal-test-'));
+  const temp = makeScratch('research-seal-test-');
   t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
   const repo = path.join(temp, 'repo');
   fs.mkdirSync(repo);

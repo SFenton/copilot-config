@@ -1,6 +1,6 @@
 ---
 name: tandem-research
-description: Explicit-only independent GPT-5.6 Sol and Claude Opus 5 research with cross-critique and Sol adjudication. Invoke only when the user requests tandem research or two independent frontier investigations; never infer invocation from complexity alone.
+description: Explicit-only independent GPT-5.6 Sol and Claude Opus 5 research with cross-critique and Sol adjudication. Follow-on implementation uses the project hierarchical pipeline.
 allowed-tools:
   - write
 ---
@@ -222,17 +222,18 @@ Use this structure unless the operator requests another format:
 For audits, include a concise quality assessment such as
 `great / good / okay / poor / bad` when useful.
 
-## Sol-only implementation contract
+## Sol-adjudicated hierarchical implementation contract
 
 If implementation follows the research:
 
-1. **GPT-5.6 Sol owns all implementation decisions and side effects.**
+1. **GPT-5.6 Sol owns tandem adjudication; the resolved project pipeline owns implementation.**
 2. Code changes, tests, builds, benchmarks, migrations, deployments, restarts,
-   production probes, rollback, commits, and final validation must be performed
-   by a `general-purpose` agent launched explicitly with `model: gpt-5.6-sol`,
-   `reasoning_effort: max`, and `context_tier: long_context`. Verify the
-   resolved runtime configuration before mutation. Never delegate
-   implementation to a `research` or `code-review` agent.
+   production probes, rollback, commits, and final validation must first resolve
+   the exact project opportunity through `budget-workflow`. The tandem
+   research profile is not implementation residency. Known-pattern work uses
+   the opportunity's medium coordinator/reviewer and any explicitly qualified
+   staging-only cheap worker. Never delegate implementation to a `research` or
+   `code-review` agent.
 3. Claude Opus 5 may perform read-only research, critique, design review, or
    post-change review, including read-only inspection commands. It must not
    edit files, run commands with side effects, own tests/builds/benchmarks,
@@ -241,17 +242,23 @@ If implementation follows the research:
    smallest targeted validation that proves the requested outcome.
 5. A research recommendation is not authorization for destructive or live
    changes. Respect repository/operator gates.
-6. Reuse the retained Sol agent when it is a `general-purpose` agent with the
-   required mutation tool. Otherwise launch another `general-purpose` Sol
-   agent with the exact pins above and give it the adjudicated evidence.
-7. The Sol implementation agent must use the mutation tool actually present
+6. Overall model identity never bypasses routing. If the current Sol,
+   HydraFusion, or other coordinator exactly matches the resolved project role,
+   it may fill that role; otherwise it dispatches the pinned profile. An
+   unqualified current model may orchestrate and read evidence but gains no
+   semantic, repository-apply, live, release, or destructive authority.
+7. Sol max/long-context may return only for
+   `tandem-consequential-final-review-conflict`, after an evidence-bound trigger
+   receipt linked to the preceding deterministic/team receipt. Task terminology,
+   complexity, or the fact that tandem research ran is not that trigger.
+8. The implementation owner must use the mutation tool actually present
    in its tool list. In Copilot CLI this is `apply_patch`, which performs file
    creation (`Add File`), editing (`Update File`), and deletion (`Delete File`).
    Claude's `create` and `edit` tools are not Sol fallbacks.
-8. If the Sol implementation agent lacks mutation tools or permission,
-   return ownership to the coordinator, which must launch or reuse a qualifying
-   exact-pinned Sol agent. If none is available, report a blocker rather than
-   allowing an unpinned parent agent to implement.
+9. Model role is separate from side-effect authorization. Repository apply
+   needs explicit operator apply authorization; GitHub, live system,
+   production, release, database, and destructive effects retain their
+   project/operator gates and deterministic machines.
 
 ## Prompt template for each independent researcher
 

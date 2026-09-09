@@ -255,7 +255,7 @@ export function report(output) {
       'No broad equivalence certification; quality retention floor permits limited detail loss'] };
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url))) {
   try {
     const [command, ...args] = process.argv.slice(2);
     let result;

@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
+import { makeScratch, scratchPath } from './helpers/scratch.mjs';
 import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { contained, packet, route, audit, hookDecision, evaluate, estimate, readAdapter } from '../skills/budget-workflow/scripts/budget.mjs';
@@ -11,7 +11,7 @@ const adapter = { version: 1, project: 'fixture', instructions: ['AGENTS.md'], r
 const task = { question: 'Find the helper signature', kind: 'lookup', risk: 'low', novel: false, evidenceComplete: true };
 
 function fixture(t) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'budget-test-'));
+  const root = makeScratch('budget-test-');
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.writeFileSync(path.join(root, 'sample.ts'), Array.from({ length: 600 }, (_, i) => `const n${i} = ${i};`).join('\n'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), 'Safety first');
@@ -64,7 +64,7 @@ test('packet preserves exact evidence with stable full-source hashes', t => {
 
 test('packet rejects traversal, symlink escapes, secrets and binary content', t => {
   const root = fixture(t);
-  fs.symlinkSync(os.tmpdir(), path.join(root, 'escape'));
+  fs.symlinkSync(scratchPath(), path.join(root, 'escape'));
   assert.throws(() => contained(root, '../'), /escapes/);
   assert.throws(() => contained(root, 'escape'), /escapes/);
   fs.writeFileSync(path.join(root, '.env.development'), 'test');

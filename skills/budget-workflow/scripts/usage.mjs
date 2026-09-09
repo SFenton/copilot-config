@@ -35,8 +35,29 @@ export function initializeLedger(file, limitCredits, spentCredits, month = new D
   nonnegative(limitCredits, 'limitCredits');
   nonnegative(spentCredits, 'spentCredits');
   if (limitCredits === 0 || !/^\d{4}-\d{2}$/.test(month)) throw new Error('Positive limit and UTC YYYY-MM month required');
-  fs.writeFileSync(file, JSON.stringify({ version: 1, month, limitCredits, spentCredits, reservations: {} }, null, 2),
+  fs.writeFileSync(file, JSON.stringify({
+    version: 2,
+    month,
+    limitCredits,
+    spentCredits,
+    reservations: {},
+  }, null, 2),
     { flag: 'wx', mode: 0o600 });
+}
+
+function reservation(value) {
+  if (typeof value === 'number') return { cap: nonnegative(value, 'reservation'), status: 'active' };
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Invalid reservation');
+  }
+  nonnegative(value.cap, 'reservation cap');
+  if (!['active', 'unreconciled'].includes(value.status)) {
+    throw new Error('Invalid reservation status');
+  }
+  if (value.reason !== undefined && typeof value.reason !== 'string') {
+    throw new Error('Invalid reservation reason');
+  }
+  return value;
 }
 
 function transaction(file, action) {
@@ -45,7 +66,7 @@ function transaction(file, action) {
   let temporary;
   try {
     const data = JSON.parse(fs.readFileSync(file, 'utf8'));
-    if (data.version !== 1 || data.month !== new Date().toISOString().slice(0, 7)) {
+    if (![1, 2].includes(data.version) || data.month !== new Date().toISOString().slice(0, 7)) {
       throw new Error('Ledger version/month mismatch: initialize a new month explicitly');
     }
     nonnegative(data.limitCredits, 'ledger limit');
@@ -53,7 +74,10 @@ function transaction(file, action) {
     if (!data.reservations || typeof data.reservations !== 'object' || Array.isArray(data.reservations)) {
       throw new Error('Invalid ledger reservations');
     }
-    for (const value of Object.values(data.reservations)) nonnegative(value, 'reservation');
+    for (const [id, value] of Object.entries(data.reservations)) {
+      data.reservations[id] = reservation(value);
+    }
+    data.version = 2;
     const result = action(data);
     temporary = `${file}.${crypto.randomUUID()}.tmp`;
     fs.writeFileSync(temporary, JSON.stringify(data, null, 2), { flag: 'wx', mode: 0o600 });
@@ -72,9 +96,10 @@ export function reserve(file, id, cap) {
   if (!id || ['__proto__', 'constructor', 'prototype'].includes(id)) throw new Error('Invalid reservation id');
   return transaction(file, data => {
     if (Object.hasOwn(data.reservations, id)) throw new Error('Duplicate reservation');
-    const reserved = Object.values(data.reservations).reduce((sum, value) => sum + value, 0);
+    const reserved = Object.values(data.reservations)
+      .reduce((sum, value) => sum + reservation(value).cap, 0);
     if (data.spentCredits + reserved + cap > data.limitCredits) throw new Error('Shared ledger budget exhausted');
-    data.reservations[id] = cap;
+    data.reservations[id] = { cap, status: 'active' };
     return { id, reserved: cap };
   });
 }
@@ -87,6 +112,36 @@ export function settle(file, id, actualCredits) {
     data.spentCredits += actualCredits;
     return { spentCredits: data.spentCredits, overBudget: data.spentCredits > data.limitCredits };
   });
+}
+
+export function markUnknown(file, id, reason) {
+  if (typeof reason !== 'string' || !reason.trim()) throw new Error('Unknown usage reason required');
+  return transaction(file, data => {
+    if (!Object.hasOwn(data.reservations, id)) throw new Error('Unknown reservation');
+    const value = reservation(data.reservations[id]);
+    data.reservations[id] = { cap: value.cap, status: 'unreconciled', reason };
+    return { id, unreconciled: value.cap };
+  });
+}
+
+export function ledgerStatus(file) {
+  const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const values = Object.values(data.reservations ?? {}).map(reservation);
+  const activeReservedCredits = values.filter(value => value.status === 'active')
+    .reduce((sum, value) => sum + value.cap, 0);
+  const unreconciledReservedCredits = values.filter(value => value.status === 'unreconciled')
+    .reduce((sum, value) => sum + value.cap, 0);
+  return {
+    version: data.version,
+    month: data.month,
+    limitCredits: data.limitCredits,
+    knownSpentCredits: data.spentCredits,
+    activeReservedCredits,
+    unreconciledReservedCredits,
+    reservedExposure: activeReservedCredits + unreconciledReservedCredits,
+    savingsEligible: activeReservedCredits === 0 &&
+      unreconciledReservedCredits === 0,
+  };
 }
 
 export function summary(directories) {
@@ -102,16 +157,25 @@ export function summary(directories) {
       (!result.workspace || result.toolCalls > 0 || result.packetVerified === true),
       durationMs: result.durationMs, usage: fs.existsSync(file) ? normalizeUsage(JSON.parse(fs.readFileSync(file, 'utf8'))) : null };
   });
-  return { runs, credits: runs.reduce((sum, run) => sum + (run.usage?.credits ?? 0), 0),
-    unknownUsageRuns: runs.filter(run => run.usage === null).length,
-    warning: 'Credits are known-usage subtotal; never interpret missing usage as zero. Ledger covers admitted runs only, not other clients.' };
+  const knownCredits = runs.reduce((sum, run) => sum + (run.usage?.credits ?? 0), 0);
+  const unknownUsageRuns = runs.filter(run => run.usage === null).length;
+  return {
+    runs,
+    credits: knownCredits,
+    knownCredits,
+    creditsLowerBound: knownCredits,
+    unknownUsageRuns,
+    savingsEligible: unknownUsageRuns === 0,
+    warning: 'Credits are a known-usage lower bound. Missing usage remains unreconciled and makes savings ineligible; it is neither zero nor cap-valued actual spend.',
+  };
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url))) {
   try {
     const [command, ...args] = process.argv.slice(2);
     if (command === 'init') initializeLedger(args[0], Number(args[1]), Number(args[2]));
     else if (command === 'summary') console.log(JSON.stringify(summary(args), null, 2));
-    else throw new Error('Usage: usage.mjs init FILE LIMIT_CREDITS SPENT_CREDITS | summary RUN_DIR...');
+    else if (command === 'ledger') console.log(JSON.stringify(ledgerStatus(args[0]), null, 2));
+    else throw new Error('Usage: usage.mjs init FILE LIMIT_CREDITS SPENT_CREDITS | summary RUN_DIR... | ledger FILE');
   } catch (error) { console.error(`usage: ${error.message}`); process.exitCode = 1; }
 }

@@ -385,7 +385,7 @@ export function report(root) {
       'Shared preparation is charged fully to each infra arm; actual ledger counts it once', 'Model-assessed scores require source adjudication'] };
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url))) {
   try {
     const [cmd, ...args] = process.argv.slice(2);
     let result;

@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
+import { makeScratch } from './helpers/scratch.mjs';
 import { execFileSync } from 'node:child_process';
 import { arms, balancedOrders, validateSelection, makePrompt, contrast, gate,
   prepare, prepareEvidence } from '../evals/factorial.mjs';
@@ -73,7 +73,7 @@ test('paired contrasts do not conflate token and credit savings', () => {
 });
 
 test('small source tasks take a sealed deterministic packet path with no model charge', async t => {
-  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'factorial-prepare-'));
+  const temp = makeScratch('factorial-prepare-');
   t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
   const repo = path.join(temp, 'repo');
   fs.mkdirSync(path.join(repo, '.github'), { recursive: true });
