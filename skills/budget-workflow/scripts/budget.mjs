@@ -4,6 +4,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { validateToolRegistry } from './workflow.mjs';
 
 export const VERSION = 1;
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
@@ -44,6 +45,60 @@ export function readAdapter(root) {
   }
   requireValue(adapter.instructions.length > 0 && adapter.gates.length > 0, 'Adapter must retain instructions and gates');
   for (const ref of adapter.instructions) contained(root, ref);
+  if (has(adapter, 'opportunityPolicy')) {
+    requireValue(typeof adapter.opportunityPolicy === 'string' && adapter.opportunityPolicy.length > 0,
+      'Invalid adapter opportunityPolicy');
+    contained(root, adapter.opportunityPolicy);
+  }
+  if (has(adapter, 'toolRegistry')) {
+    requireValue(typeof adapter.toolRegistry === 'string' && adapter.toolRegistry.length > 0,
+      'Invalid adapter toolRegistry');
+    const registryFile = contained(root, adapter.toolRegistry);
+    validateToolRegistry(JSON.parse(fs.readFileSync(registryFile, 'utf8')), adapter.project);
+  }
+  if (has(adapter, 'destructiveMaintenanceMachine')) {
+    requireValue(typeof adapter.destructiveMaintenanceMachine === 'string' &&
+      adapter.destructiveMaintenanceMachine.length > 0,
+    'Invalid adapter destructiveMaintenanceMachine');
+    contained(root, adapter.destructiveMaintenanceMachine);
+  }
+  if (has(adapter, 'opportunityEvaluation')) {
+    requireValue(typeof adapter.opportunityEvaluation === 'string' &&
+      adapter.opportunityEvaluation.length > 0, 'Invalid adapter opportunityEvaluation');
+    contained(root, adapter.opportunityEvaluation);
+  }
+  if (has(adapter, 'workerEvaluation')) {
+    requireValue(typeof adapter.workerEvaluation === 'string' &&
+      adapter.workerEvaluation.length > 0, 'Invalid adapter workerEvaluation');
+    contained(root, adapter.workerEvaluation);
+  }
+  if (has(adapter, 'capabilityEvaluation')) {
+    requireValue(typeof adapter.capabilityEvaluation === 'string' &&
+      adapter.capabilityEvaluation.length > 0, 'Invalid adapter capabilityEvaluation');
+    contained(root, adapter.capabilityEvaluation);
+  }
+  if (has(adapter, 'sandboxProfiles')) {
+    requireValue(typeof adapter.sandboxProfiles === 'string' &&
+      adapter.sandboxProfiles.length > 0, 'Invalid adapter sandboxProfiles');
+    contained(root, adapter.sandboxProfiles);
+  }
+  if (has(adapter, 'learningPolicy')) {
+    requireValue(typeof adapter.learningPolicy === 'string' &&
+      adapter.learningPolicy.length > 0, 'Invalid adapter learningPolicy');
+    contained(root, adapter.learningPolicy);
+  }
+  if (has(adapter, 'delegation')) {
+    requireValue(adapter.delegation && typeof adapter.delegation === 'object' &&
+      !Array.isArray(adapter.delegation), 'Invalid adapter delegation policy');
+    requireValue(Array.isArray(adapter.delegation.allowedClasses) &&
+      adapter.delegation.allowedClasses.length > 0 &&
+      adapter.delegation.allowedClasses.every(item =>
+        ['scaffold', 'test-generation', 'mechanical-transform'].includes(item)),
+    'Invalid adapter delegation allowedClasses');
+    requireValue(adapter.delegation.requireCleanTargets === true &&
+      adapter.delegation.requireDeterministicValidator === true,
+    'Delegation policy must require clean targets and deterministic validation');
+  }
   return adapter;
 }
 
@@ -298,7 +353,7 @@ export function main(argv = process.argv.slice(2)) {
   if (command === 'evaluate' && !result.promoted) process.exitCode = 2;
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url))) {
   try { main(); } catch (error) {
     console.error(`budget: ${error.message}`);
     process.exitCode = 1;

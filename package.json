@@ -4,7 +4,27 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "budget": "node skills/budget-workflow/scripts/budget.mjs"
+    "test:projects": "node scripts/run-project-contract-tests.mjs",
+    "budget": "node skills/budget-workflow/scripts/budget.mjs",
+    "learning": "node skills/budget-workflow/scripts/continuous-improvement.mjs validate",
+    "learning:status": "node skills/budget-workflow/scripts/continuous-improvement.mjs status",
+    "learning:bind": "node skills/budget-workflow/scripts/continuous-improvement.mjs bind-workflow",
+    "learning:select": "node skills/budget-workflow/scripts/continuous-improvement.mjs select-priority",
+    "learning:prepare": "node skills/budget-workflow/scripts/continuous-improvement.mjs prepare-candidate",
+    "learning:evidence": "node skills/budget-workflow/scripts/continuous-improvement.mjs record-evidence",
+    "learning:complete": "node skills/budget-workflow/scripts/continuous-improvement.mjs record-completion",
+    "learning:replay": "node skills/budget-workflow/scripts/improvement-replay.mjs",
+    "delegate": "node skills/budget-workflow/scripts/delegation.mjs",
+    "opportunity": "node skills/budget-workflow/scripts/opportunities.mjs",
+    "release-machine": "node skills/budget-workflow/scripts/release-machine.mjs",
+    "opportunity:normalize": "node evals/normalize-opportunity-inventory.mjs",
+    "opportunity:study": "node evals/opportunity-pin-study.mjs",
+    "worker:study": "node evals/project-worker-study.mjs",
+    "capability:evaluate": "node evals/capability-qualification.mjs",
+    "sandbox:qualify": "node evals/project-sandbox-qualification.mjs",
+    "benchmark:plan": "node evals/benchmark-budget-planner.mjs",
+    "team:evaluate": "node evals/team-pipeline-evaluation.mjs",
+    "inventory": "node evals/hierarchical-inventory.mjs"
   },
   "engines": {
     "node": ">=22"

@@ -57,7 +57,7 @@ export function sourceReferences(state) {
     : `- \`${id}\`: ${source.url} (verified ${source.verifiedAt}; SHA-256 ${source.sha256})`).join('\n');
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url))) {
   try {
     const [command, taskFile, repoRoot, outputDirectory, cacheDir] = process.argv.slice(2);
     const task = command === 'evidence' ? null : JSON.parse(fs.readFileSync(taskFile, 'utf8'));

@@ -15,6 +15,14 @@ safety contracts win.
    missing safety gates or use evidence tools to bypass content exclusions.
 2. For <=5 straightforward reads/edits/commands, act directly. The setup cost of
    a broker is not justified by a single symbol lookup.
+   For a substantive retained-owner task in a repository with
+   `opportunityPolicy`, run `scripts/opportunities.mjs plan ROOT TASK.json` and
+   execute the returned version 3 team pipeline in order. Deterministic routing,
+   evidence collection, registered tools, and receipts launch no model. Known
+   patterns use the exact project medium coordinator/reviewer. Research,
+   specification, and risk-triggered frontier review require a named,
+   evidence-bound trigger receipt; task terminology or consequence alone is
+   never a stronger-model trigger.
 3. For research, separate **evidence location** from **risk**:
    repository-only, external-only, or hybrid. Unknown repository relevance needs
    a bounded local probe; one failed search does not establish absence.
@@ -42,15 +50,118 @@ safety contracts win.
    Credits, not token counts alone, determine cost. A soft cap can overshoot;
    use one shared admission ledger and never silently increase it.
 
+## Continuous improvement
+
+The default lifecycle hook records only sanitized event metadata and binds it
+to version 3 pipeline receipts. Repeated successful traces may produce one
+deterministic-tool, reusable-skill, routing-policy or qualification-fixture
+candidate; one-offs and unstable work no-op or defer. Existing registered
+tools and skills are superseding evidence, not new work.
+
+Each `userPromptSubmitted` starts a new privacy-safe workflow identity.
+The opportunity planner binds its selected version 3 plan to that active
+workflow by session ID when one is available, or by the unique recent exact
+`task.question`/prompt hash when it is not. Duplicate prompt-hash matches across
+sessions fail closed and remain unbound.
+`agentStop` may request exactly one repository-local incubation when a repeated
+two-to-six-step opportunity subgraph crosses the project threshold. Run the
+exact `prepare-candidate` command in the reason, then delegate implementation to
+the resolved project medium coordinator. If ranked priorities tie, that medium
+coordinator must run one listed `select-priority` command before preparation;
+the selected class, validators, and destination are then ledger-bound. Never
+request another turn while `stop_hook_active` is true or while handling the
+durable marked improvement prompt. `automaticBuild` authorizes only this local
+incubation request;
+`automaticPromotion` is a separate policy and remains false in the current
+projects. Promotion requires an executable deterministic artifact or meaningful
+discoverable skill plus bound replay, validator, medium-review, scope/tree,
+rollback, integration and all-leg accounting receipts. Live, release,
+production, destructive, security, credential, provider, provenance and
+subjective visual work remains skill/policy evidence only and gains no
+execution authority.
+Shell commands retain only exact and normalized command-shape hashes. A narrow
+local inventory/validation allowlist may be classified as none, workspace, or
+local-container; unknown, network, live, deployment, and destructive commands
+remain opaque and risk-gated. Repeated semantic or risk-bearing procedures may
+produce non-executing reusable-skill candidates with explicit authorization,
+validation, review, and escalation gates, but never deterministic automatic
+promotion authority.
+
+## Bounded implementation delegation
+
+The project-qualified medium coordinator owns known-pattern work: decompose an
+approved spec, dispatch only an exact bounded artifact, review the patch,
+request at most one defect-receipt-bound revision, integrate deterministic
+evidence, and escalate only on named triggers. It receives no live, external,
+release, destructive, or repository-apply authority from its model role.
+
+The coordinator may call
+`scripts/delegation.mjs run JOB ROOT OUTPUT PIPELINE_STATE` to create a staged,
+untrusted provisional artifact when the repository adapter opts into the task
+class. `PIPELINE_STATE` must bind the immediately preceding coordinator
+dispatch, or the single reviewer revision request for attempt two, and every
+receipt must match its unique workflow ID, repository, base revision, and scope
+hash. The shared Docker sandbox and reviewed-apply primitive enforce
+network isolation, collateral detection, medium acceptance, separate
+repository-apply authorization, unchanged state, identical post-apply
+validation, and rollback in fixtures. Public `apply` and automatic acceptance
+remain disabled. This is not research delegation. The staging lane is:
+
+- low risk, non-novel, complete bounded evidence;
+- one of the adapter's allowed scaffold, test-generation, or
+  mechanical-transform classes;
+- 1-6 exact clean target paths, at most 48 KB of source evidence and 64 KB of
+  generated content;
+- no repository tools, shell, network, custom instructions, permissions, or
+  side effects in the worker;
+- strict JSON artifacts and no application to repository targets;
+- complete opportunity and referenced-tool contract hashes, canonical job,
+  source/evidence/target bindings, and a zero-model image/dependency/runtime
+  readiness preflight before worker launch;
+- one initial attempt and at most one reviewer-directed revision bound to the
+  exact defect receipt; a second revision fails closed;
+- mandatory medium review before any reviewed application.
+
+The generic provisional worker is MAI Code 1.1 Flash at medium effort/default
+context. Repositories with an opportunity policy must use that opportunity's
+exact provisionally evaluated worker instead: React uses GPT-5 mini, EverShelf
+uses Gemini 3.7 Flash, and FST uses MAI Code 1.1 Flash. HA-EverShelf retains a
+Gemini 3.7 policy pin but its zero valid cases disable launch. Do not silently
+substitute another worker. Research, architecture, debugging,
+security, semantic docs,
+live-system behavior, release/destructive work, dirty targets, incomplete
+evidence, project risk-term matches, and work without deterministic acceptance
+remain with the owner.
+
+## Trust and deterministic release execution
+
+`provisional-staging` output is untrusted and cannot be applied.
+`reviewed-application` has no 30-case floor, but requires isolated deterministic
+pre-validation, authorized medium acceptance, separate operator apply
+authorization, identical post-validation, and rollback binding.
+`unattended-application` additionally requires at least 30 matched held-out
+cases, ten families where that dimension is used, independent review,
+confidence and terminal-outcome gates, zero critical failures, fault-tested
+rollback, reconciled usage, and positive complete all-leg savings.
+
+Version 3 `releaseMachine` files execute only registered deterministic tools
+after explicit operator authorization with evidence-bound receipts,
+predefined rollback, post-rollback verification and unconditional cleanup.
+They must remain disabled while any required external or production driver is
+disabled. The project medium reviewer cannot authorize side effects. Max/long
+exception review is allowed only after a named project trigger receipt, such as
+failed rollback. Models never execute releases.
+
 ## Model policy
 
-The evidence planner supplies cost/speed profiles for an **explicit new run**.
-It does not change the interactive model. High/unknown risk, novelty and project
-risk terms retain frontier reasoning. Default context comes first; increase
-effort/context only for a named need. Explicit pins are not silently substituted.
-Bounded cost-first work uses Sol high/default; speed-first uses Astra low/default;
-high-risk uses Astra high/default. Calibration supports a lower-credit operating
-choice, not universal equivalence or a promise of fewer total tokens.
+The evidence planner supplies profiles for an **explicit role**, not a global
+model default. The interactive model may be Sol, HydraFusion, or another model;
+identity never bypasses deterministic routing or exact project pins. A current
+model may fill a role only when it exactly matches the role's qualified profile.
+Otherwise it may orchestrate/read but gains no semantic, repository-apply,
+live, release, external, or destructive authority. Sol max/long is never
+resident implementation ownership; it is conditional critical review behind a
+concrete trigger receipt.
 
 HydraFusion may remain the user-selected coordinator; standalone CLI availability
 differs from session transport. Report an availability failure rather than

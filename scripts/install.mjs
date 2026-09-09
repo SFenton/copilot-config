@@ -10,6 +10,7 @@ export function install(root, home, previousRoot = null) {
     ['skills/budget-workflow', 'skills/budget-workflow'],
     ['skills/tandem-research', 'skills/tandem-research'],
     ['hooks/budget-reads.json', 'hooks/budget-reads.json'],
+    ['hooks/continuous-improvement.json', 'hooks/continuous-improvement.json'],
     ['instructions/budget-workflow.instructions.md', 'instructions/budget-workflow.instructions.md'],
   ];
   const plan = targets.map(([source, target]) => {
@@ -29,8 +30,16 @@ export function install(root, home, previousRoot = null) {
           if (resolved !== desired && (!previousRoot || resolved !== path.join(path.resolve(previousRoot), source))) {
             throw new Error(`Refusing unrecognized existing link: ${destination}`);
           }
-        } else if (kind === 'file' && info.isFile() && fs.readFileSync(destination, 'utf8') === installedContent) {
-          previousContent = installedContent;
+        } else if (kind === 'file' && info.isFile()) {
+          const currentContent = fs.readFileSync(destination, 'utf8');
+          const knownPrevious = previousRoot ? path.join(path.resolve(previousRoot), source) : null;
+          const previousSourceContent = knownPrevious && fs.existsSync(knownPrevious)
+            ? fs.readFileSync(knownPrevious, 'utf8') : null;
+          if (currentContent === installedContent || currentContent === previousSourceContent) {
+            previousContent = currentContent;
+          } else {
+            throw new Error(`Refusing to replace unrecognized file/directory: ${destination}`);
+          }
         } else {
           throw new Error(`Refusing to replace unrecognized file/directory: ${destination}`);
         }
@@ -70,7 +79,7 @@ export function uninstall(receipt) {
   }
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url))) {
   try {
     const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
     if (process.argv[2] === '--rollback') uninstall(process.argv[3]);

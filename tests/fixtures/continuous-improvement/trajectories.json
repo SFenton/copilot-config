@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "fixtures": [
+    {
+      "id": "deterministic-tool-success",
+      "candidateClass": "deterministic-tool",
+      "operations": ["fixture-read-contract", "fixture-run-validator"],
+      "expected": "accepted",
+      "actual": "accepted",
+      "cleanup": "accepted"
+    },
+    {
+      "id": "model-backed-skill-success",
+      "candidateClass": "reusable-skill",
+      "operations": ["fixture-collect-evidence", "fixture-semantic-decision", "fixture-validate"],
+      "expected": "accepted",
+      "actual": "accepted",
+      "cleanup": "accepted"
+    },
+    {
+      "id": "routing-policy-success",
+      "candidateClass": "routing-policy",
+      "operations": ["fixture-route", "fixture-revision", "fixture-review"],
+      "expected": "accepted",
+      "actual": "accepted",
+      "cleanup": "accepted"
+    },
+    {
+      "id": "risky-production-rejected",
+      "candidateClass": "reusable-skill",
+      "operations": ["fixture-release-plan", "fixture-production-driver"],
+      "expected": "rejected",
+      "actual": "rejected",
+      "cleanup": "accepted"
+    },
+    {
+      "id": "one-off-no-op",
+      "candidateClass": "no-op",
+      "operations": ["fixture-unique-operation"],
+      "expected": "accepted",
+      "actual": "accepted",
+      "cleanup": "accepted"
+    }
+  ]
+}

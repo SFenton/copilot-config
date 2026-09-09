@@ -1,0 +1,112 @@
+name: Budget contracts
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      ha_ref:
+        description: Exact 40-character ha-sfenton-react-dash commit SHA
+        required: true
+        type: string
+      evershelf_ref:
+        description: Exact 40-character EverShelf commit SHA
+        required: true
+        type: string
+      ha_evershelf_ref:
+        description: Exact 40-character ha-evershelf commit SHA
+        required: true
+        type: string
+      fst_ref:
+        description: Exact 40-character FestivalScoreTracker commit SHA
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  shared:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  projects:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: copilot-config
+      - uses: actions/checkout@v6
+        with:
+          repository: SFenton/ha-sfenton-react-dash
+          ref: ${{ inputs.ha_ref }}
+          path: projects/ha-react
+          token: ${{ secrets.CROSS_REPO_READ_TOKEN }}
+          fetch-depth: 0
+      - uses: actions/checkout@v6
+        with:
+          repository: SFenton/EverShelf
+          ref: ${{ inputs.evershelf_ref }}
+          path: projects/evershelf
+          token: ${{ secrets.CROSS_REPO_READ_TOKEN }}
+          fetch-depth: 0
+      - uses: actions/checkout@v6
+        with:
+          repository: SFenton/ha-evershelf
+          ref: ${{ inputs.ha_evershelf_ref }}
+          path: projects/ha-evershelf
+          token: ${{ secrets.CROSS_REPO_READ_TOKEN }}
+      - uses: actions/checkout@v6
+        with:
+          repository: SFenton/FestivalScoreTracker
+          ref: ${{ inputs.fst_ref }}
+          path: projects/fst
+          token: ${{ secrets.CROSS_REPO_READ_TOKEN }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: copilot-config/package-lock.json
+      - name: Require immutable project refs
+        env:
+          HA_REF: ${{ inputs.ha_ref }}
+          EVERSHELF_REF: ${{ inputs.evershelf_ref }}
+          HA_EVERSHELF_REF: ${{ inputs.ha_evershelf_ref }}
+          FST_REF: ${{ inputs.fst_ref }}
+        run: |
+          node -e "for(const [name,value] of Object.entries(process.env).filter(([name])=>name.endsWith('_REF'))){if(!/^[a-f0-9]{40}$/.test(value??''))throw new Error(name+' must be an exact commit SHA')}"
+      - run: npm ci
+        working-directory: copilot-config
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install project validation dependencies
+        run: |
+          npm ci --prefix projects/ha-react
+          corepack yarn --cwd projects/fst/FortniteFestivalWeb install --immutable
+          python -m pip install --user pytest pytest-asyncio
+          docker pull node:22-bookworm-slim
+          docker pull php:8.3-cli
+          docker pull python:3.12-slim
+      - name: Build project manifest
+        run: |
+          node -e "const fs=require('fs');const p=process.cwd();fs.writeFileSync('project-manifest.json',JSON.stringify({cases:[
+            {id:'ha',root:p+'/projects/ha-react',instructionBaselineRef:'1390ad6^',instructionMigrationRef:'1390ad6'},
+            {id:'evershelf',root:p+'/projects/evershelf',instructionBaselineRef:'fe46c03^',instructionMigrationRef:'fe46c03'},
+            {id:'ha-evershelf',root:p+'/projects/ha-evershelf'},
+            {id:'fst',root:p+'/projects/fst'}
+          ]},null,2))"
+      - run: npm run test:projects
+        working-directory: copilot-config
+        env:
+          BUDGET_PROJECT_MANIFEST: ${{ github.workspace }}/project-manifest.json

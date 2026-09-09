@@ -102,7 +102,7 @@ export function report(directory, ids) {
   });
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === new URL(import.meta.url).pathname) {
+if (process.argv[1] && fs.realpathSync(process.argv[1]) === fs.realpathSync(new URL(import.meta.url).pathname)) {
   try {
     const [command, ...args] = process.argv.slice(2);
     if (command === 'prepare') prepare(JSON.parse(fs.readFileSync(args[0], 'utf8')), args[1]);

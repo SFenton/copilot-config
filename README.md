@@ -14,16 +14,21 @@ scanner failed on real source, so PHP deliberately uses its native JS parser.
 
 ## Skills and ownership
 
-- `budget-workflow`: deterministic-first routing, exact evidence, one execution
-  owner, bounded revisions, project-owned tests, and explicit release gates.
-- `tandem-research`: preserved Sol/Opus max/long-context protocol with Sol-only
-  implementation, **explicit invocation only**. Complexity alone no longer
-  triggers it.
+- `budget-workflow`: deterministic-first routing, exact evidence, project-tuned
+  medium coordination, one-revision bounded workers, explicit trust tiers, and
+  deterministic release gates.
+- `tandem-research`: preserved Sol/Opus max/long-context research/adjudication
+  protocol, **explicit invocation only**. Follow-on implementation returns to
+  the hierarchical project route; complexity alone does not trigger tandem or
+  max-resident implementation.
 
 HydraFusion can be the user-selected coordinator. Do not nest it under itself
 or add an automatic tandem layer. Its critique pattern is not two independent
 research investigations. Unproven high-risk/novel tasks keep frontier reasoning.
-Model choice is advisory; repository safety and explicit specialist pins win.
+Overall model identity is not authority. Sol, HydraFusion, or another current
+model may fill a role only when it exactly matches that project's resolved pin;
+otherwise it may orchestrate/read while the router dispatches the pinned role.
+Repository safety, operator authorization, and explicit specialist pins win.
 
 The [four-arm research comparison](evals/factorial-results.md) found Astra low
 direct faster but modestly more expensive than Sol max direct, while the tested
@@ -38,7 +43,8 @@ node scripts/install.mjs
 node scripts/install.mjs "$HOME/repos/copilot-config"
 ```
 
-The installer links both skills and installs the native large-read hook plus
+The installer links both skills and installs the native large-read and
+continuous-improvement lifecycle hooks plus
 `instructions/budget-workflow.instructions.md` as regular files into
 `$COPILOT_HOME` or `~/.copilot`. It refuses real-file/directory collisions and
 unknown symlinks. It writes a rollback receipt before changes. Existing
@@ -76,6 +82,23 @@ runtime timeouts, or alternative tools can bypass it. Do not deliberately
 bypass it; use the source ranges needed for real reasoning and edits.
 The hook returns `{}` on allowed reads so normal permissions remain in force.
 
+The continuous-improvement hook listens to `postToolUse`,
+`postToolUseFailure`, `subagentStop`, `agentStop` and `sessionEnd`. It writes
+user-local `0600` event shards under `$COPILOT_HOME/learning` containing only
+stable trace/receipt hashes, normalized operation shapes, path categories,
+result classes, timings and accounting metadata. It never persists raw
+prompts, responses, source, tool results, commands, credentials or environment
+values, and it never modifies a successful tool result. General-purpose agent
+work is covered by actual parent tool events, receipt lineage and transcript
+file metadata hashes; `subagentStop` is optional enrichment.
+
+Projects opt in with `.github/agent-learning.json`. The observer silently
+no-ops below recurrence thresholds. At most one threshold-crossing candidate
+can request one continuation, with durable recursion and `stop_hook_active`
+guards. Real project policies keep automatic promotion disabled unless a
+repository explicitly enables the narrow replay/review/value/scope/rollback
+path for a zero/low-side-effect repository-local tool or skill.
+
 ## Deterministic CLI
 
 ```bash
@@ -85,6 +108,11 @@ node skills/budget-workflow/scripts/budget.mjs route /path/to/project task.json
 node skills/budget-workflow/scripts/budget.mjs packet /path/to/project ranges.json
 node skills/budget-workflow/scripts/budget.mjs evaluate outcomes.json
 node skills/budget-workflow/scripts/budget.mjs estimate scenario.json
+node skills/budget-workflow/scripts/opportunities.mjs validate /path/to/project
+node skills/budget-workflow/scripts/opportunities.mjs plan /path/to/project task.json
+node skills/budget-workflow/scripts/continuous-improvement.mjs validate /path/to/project
+node skills/budget-workflow/scripts/continuous-improvement.mjs status /path/to/project
+node skills/budget-workflow/scripts/improvement-replay.mjs replay candidate.json trajectories.json
 npm test
 ```
 
@@ -100,15 +128,183 @@ The project supplies `.github/agent-budget.json`:
 }
 ```
 
+## Bounded artifact staging
+
+Repository adapters can opt specific low-risk non-research artifact classes into
+staged worker generation with one reviewer-directed revision maximum:
+
+```json
+{
+  "delegation": {
+    "allowedClasses": ["scaffold", "test-generation"],
+    "requireCleanTargets": true,
+    "requireDeterministicValidator": true
+  }
+}
+```
+
+Run or inspect a reviewed job with:
+
+```bash
+node skills/budget-workflow/scripts/delegation.mjs plan job.json /path/to/project
+node skills/budget-workflow/scripts/delegation.mjs run job.json /path/to/project /private/output pipeline-state.json
+node skills/budget-workflow/scripts/delegation.mjs validate-staged job.json /path/to/project /private/output
+```
+
+Example reviewed job:
+
+```json
+{
+  "opportunityId": "focused-tests",
+  "kind": "bounded-artifact",
+  "taskClass": "test-generation",
+  "instruction": "Create the focused tests described by the supplied source and adjacent test.",
+  "risk": "low",
+  "novel": false,
+  "evidenceComplete": true,
+  "sanitized": true,
+  "boundaries": {
+    "research": false,
+    "architecture": false,
+    "ambiguous": false,
+    "debugging": false,
+    "security": false,
+    "liveSystem": false,
+    "release": false,
+    "destructive": false,
+    "semanticDocumentation": false
+  },
+  "deterministicValidator": true,
+  "validatorId": "project-focused-test-validator",
+  "inputs": [
+    { "file": "src/value.ts", "start": 1, "end": 40 },
+    { "file": "src/value.test.ts", "start": 1, "end": 60 }
+  ],
+  "outputs": ["src/new-value.test.ts"]
+}
+```
+
+`opportunityId` is mandatory when the repository adapter names an opportunity
+policy. The selected version 3 entry must contain exactly one matching
+`cheap-worker` phase and worker candidate with the requested
+`delegationClass`, an allowed provisional pin, an exact registered validator,
+and an exact checked-in sandbox profile.
+Owner, specialist, live, and release opportunities cannot enter the
+artifact lane even if caller-supplied risk metadata is optimistic.
+
+For version 3, `pipeline-state.json` contains the verified receipt array (or an
+object with a `receipts` array) plus the exact workflow ID, base revision, and
+scope hash. Every receipt must carry the same run/repository binding. Initial
+generation requires the immediately preceding medium-coordinator dispatch
+receipt. A second invocation is accepted only when the immediately preceding
+medium-review receipt requests the one allowed revision and binds the first
+worker receipt.
+
+Before any worker launch, the executor rechecks the complete opportunity and
+referenced-tool contract hash, exact ordered receipt prefix, canonical job,
+source/evidence hashes, target state, locally pinned sandbox image, dependency
+fingerprints, and runtime readiness checks. Those values are part of the scope
+and acceptance bindings; an unavailable or changed validator environment fails
+with zero worker model calls.
+
+The worker receives only an exact evidence packet and returns strict JSON for
+1-6 named files. It has no filesystem, shell, network, history, MCP,
+instruction, or mutation tools. Production apply and automatic acceptance are
+disabled. `run` creates staged, explicitly untrusted provisional output after a
+static prohibited-capability scan and zero-model sandbox readiness preflight.
+`validate-staged` copies the repository into
+a disposable Docker workspace with no network, read-only container root,
+dropped capabilities, no host environment, collateral-write detection and a
+locally pinned image. The reviewed apply primitive additionally requires
+full-repository/revision/scope-bound medium acceptance with exact resolved
+configuration evidence plus separate operator repository-apply authorization,
+verifies the repository is unchanged, applies exact targets, revalidates in a
+fresh sandbox and restores exact bytes on failure. The public `apply` CLI
+remains disabled. One reviewer-directed revision is permitted and must bind the
+exact defect receipt; a second revision fails closed.
+
+The historical six-case frozen study covered two scaffolds, two mutation-tested test
+files, and two mechanical transforms. MAI Code 1.1 Flash passed 6/6 and reduced
+marginal model credits by 94.6% and tokens by 25.0% versus Sol high within that
+study, while taking
+76% longer. GPT-5 mini passed 6/6 but was more expensive and 175% slower. Gemini
+3.8 Flash attempted a denied tool and was rejected. These results support only
+provisional staging hypotheses only; the legacy solve entry point is now
+disabled and the measurements do not establish automatic application, broad
+implementation, or research equivalence. See
+[delegation calibration](evals/delegation-results.md).
+
+Project-specific evidence provides provisional staging profiles only: React
+uses GPT-5 mini, EverShelf uses Gemini 3.7 Flash, and FST uses MAI Code 1.1
+Flash based on three cases each. HA-EverShelf's incomplete packets were
+invalidated, leaving zero valid cases and disabling its cheap-worker launch.
+`reviewed-application` has no 30-case floor, but it always requires isolated
+pre-validation, medium acceptance, separate operator apply authorization,
+identical post-validation, and exact rollback binding. Only
+`unattended-application` uses the >=30 matched held-out case gate (and >=10
+families where that dimension applies), independent review, confidence,
+matching terminal outcomes, zero critical failures, fault-tested rollback,
+reconciled all-leg usage, and positive complete all-leg savings.
+
 Instruction paths must exist inside the repository. The adapter describes
 gates, not executable permissions. Each project owns its targeted test
 selection, research evidence, live safety, release and rollback rules.
 
-Optional cross-project regression uses `BUDGET_PROJECT_MANIFEST` with `cases`
+All four project `.github/agent-opportunities.json` policies use version 3 and
+resolve exactly 44 project-tuned teams. Supported phase kinds are
+`deterministic`, `research-frontier`, `spec-planner`,
+`medium-coordinator`, `cheap-worker`, `medium-review`,
+`risk-triggered-frontier-review`, and `deterministic-release`.
+Routine deterministic phases need no model launch or model-bound authorization.
+Conditional frontier phases require named trigger receipts. Model role never
+grants repository apply, GitHub, Home Assistant, database, production, release,
+external, or destructive authority.
+
+Project release machines also use version 3. Repository-local validation
+drivers are executable; GitHub, HA, HACS, database and production drivers are
+represented as typed disabled tools, so each complete machine remains
+`enabled: false`. Explicit operator authorization precedes deterministic
+execution. A project medium reviewer checks evidence but cannot authorize side
+effects; max/long exception review requires a project trigger receipt. Shared
+fake-driver tests exercise authorization, receipt
+binding, expected rejection, abnormal failure, rollback verification and
+cleanup for GitHub PR/release/workflow, Home Assistant, HACS, deployment,
+database capture and rollback classes without external mutation.
+
+Capability promotion uses:
+
+```bash
+node evals/project-sandbox-qualification.mjs /path/to/project capability-id
+node evals/capability-qualification.mjs qualification.json
+node evals/benchmark-budget-planner.mjs evals/capability-study-budget.json
+```
+
+The four current project dependency profiles are qualified with network-off
+Docker execution, read-only dependency mounts, fixed runtime checks, no host
+environment, explicit writable/cache paths and lockfile or fixture evidence.
+That sandbox qualification does not promote a model capability.
+
+It requires at least 30 capability-matched held-out cases across at least ten
+source families, independent review, zero critical failures, matched terminal
+outcomes and known usage for every model leg. Three-case project inventories
+remain explicitly provisional and publish no savings.
+
+The checked-in hierarchical study budget describes complete team topologies,
+not an isolated `[bounded-worker, frontier-review]` pair. Planning, evidence,
+implementation, deterministic validation, review, one revision, grading,
+failure, fallback, escalation, and release legs are represented. Because at
+least one mandatory production leg lacks matched expected usage, expected
+savings remain `null`, the candidate pool authorizes zero calls, and
+`runStudy` remains `false`.
+
+Fail-closed cross-project regression uses `npm run test:projects` and requires
+`BUDGET_PROJECT_MANIFEST` with `cases`
 containing `id` and `root`. For relocated HA/EverShelf instruction checks, pin
-`instructionBaselineRef` to the pre-migration commit so the preservation check
-remains reproducible after committing or merging (the pre-commit default is
-`HEAD`). Keep local manifest paths and raw evidence outside the repository.
+`instructionBaselineRef` to the pre-migration commit and
+`instructionMigrationRef` to the migration commit so the historical
+verbatim move remains reproducible while the live contract evolves. Keep local
+manifest paths and raw evidence outside the repository. The shared CI workflow
+checks out all four projects with the read-only `CROSS_REPO_READ_TOKEN`.
 
 `task.json`:
 
@@ -129,7 +325,8 @@ incomplete reasoning evidence escalate conservatively. Simple known commands
 require no LLM. Complete supplied-evidence extraction can use GPT-5.4 mini.
 This legacy broad-task router retains conservative Astra high research advice
 and points research to the evidence-mode planner below. Do not chain the two as
-successive model gates. There is no automatic draft worker. Sonnet 5 is not
+successive model gates. Its legacy route has no automatic draft worker; the
+separately controlled provisional artifact lane is described below. Sonnet 5 is not
 qualified for standalone research decisions: the source-backed comparison
 found material gaps. See [research qualification](evals/research-qualification.md).
 These are conservative routing choices, not certified equivalence to tandem.
@@ -271,6 +468,7 @@ normalized; nonempty private web query text is still rejected.
 node skills/budget-workflow/scripts/usage.mjs init /private/month-ledger.json 300 0
 node skills/budget-workflow/scripts/run-leaf.mjs request.json /private/new-run
 node skills/budget-workflow/scripts/usage.mjs summary /private/new-run
+node skills/budget-workflow/scripts/usage.mjs ledger /private/month-ledger.json
 ```
 
 The ledger's limit and initial spend are explicit caller inputs. Its scope is
@@ -278,8 +476,11 @@ admitted runs only: other projects/clients need to use the same ledger or their
 spend must be supplied separately. It is not the account billing system.
 The UTC month must match; initialize a new file for a new month. Reservations
 serialize via an exclusive lock; contention fails closed rather than launching
-unaccounted work. Never remove a live lock. A crash/missing usage retains its
-reservation until the operator reconciles the actual run; no automatic refund.
+unaccounted work. Never remove a live lock. Missing usage changes the
+reservation to explicit `unreconciled` state. Reports expose known spend,
+active and unreconciled reservations, and reserved exposure separately.
+Savings are ineligible while required usage is unknown; the soft cap is never
+reported as actual spend.
 
 The CLI cap is soft (minimum 30), not a hard monthly guarantee. Reserve the
 whole per-run cap before launch, settle actual reported credits after return,
@@ -303,8 +504,10 @@ tool schema makes the run incomplete. This is a supplied-evidence leaf,
 not a general coding agent. Repository safety material must be included in
 the supplied evidence whenever the question needs it.
 
-The output includes request hash, runtime, requested model profile, tool
-isolation evidence, answer, raw events, errors and usage. Do not feed full raw
+The output includes request hash, runtime, requested model profile, the exact
+resolved `subagent.configured` event evidence, tool isolation evidence, answer,
+raw events, errors and usage. Missing or mismatched resolved model, effort, or
+context fails closed. Do not feed full raw
 event logs back into a model: they contain bulky opaque runtime fields.
 
 Research evaluation may explicitly set `toolMode: "research"` and an absolute

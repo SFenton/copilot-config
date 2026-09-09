@@ -5,8 +5,9 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn, execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { normalizeUsage, reserve, settle } from './usage.mjs';
+import { markUnknown, normalizeUsage, reserve, settle } from './usage.mjs';
 import { contained, packet as buildEvidencePacket } from './budget.mjs';
+import { SUPPORTED_MODELS, resolvedConfiguration } from './workflow.mjs';
 
 const researchTools = ['view', 'rg', 'grep', 'glob'];
 const brokerFunctions = ['evidence_find', 'evidence_open', 'evidence_contract'];
@@ -87,7 +88,7 @@ export function invocation(request, outputDirectory, mcpNames = []) {
   if (!request || typeof request.prompt !== 'string' || !request.prompt.trim() ||
     Buffer.byteLength(request.prompt) > 64000) throw new Error('Supply a nonempty reviewed prompt <=64 KB');
   if (request.sanitized !== true) throw new Error('Explicit sanitized=true attestation required; never send secrets');
-  if (!['gpt-5.4-mini', 'claude-sonnet-5', 'claude-opus-5', 'gpt-6-astra', 'gpt-5.6-sol', 'hydrafusion'].includes(request.model)) {
+  if (!(SUPPORTED_MODELS.has(request.model) || request.model === 'hydrafusion')) {
     throw new Error('Unsupported model: choose an explicit reviewed profile');
   }
   if (!Number.isFinite(request.maxCredits) || request.maxCredits < 30 || request.maxCredits > 500) {
@@ -118,7 +119,7 @@ export function invocation(request, outputDirectory, mcpNames = []) {
     '--log-dir', path.join(outputDirectory, 'logs'),
   ];
   if (request.model === 'hydrafusion') args.push('--experimental');
-  else args.push('--effort', request.effort);
+  if (!['hydrafusion', 'claude-haiku-4.5'].includes(request.model)) args.push('--effort', request.effort);
   for (const name of mcpNames) args.push('--disable-mcp-server', name);
   if (broker) {
     args.push('--additional-mcp-config', JSON.stringify({ mcpServers: { budget_evidence: {
@@ -161,7 +162,8 @@ export async function run(request, outputDirectory) {
   const reservationId = crypto.randomUUID();
   if (request.ledger) reserve(request.ledger, reservationId, request.maxCredits);
   const manifest = {
-    version: 1, model: request.model, effort: request.model === 'hydrafusion' ? null : request.effort,
+    version: 1, model: request.model,
+    effort: ['hydrafusion', 'claude-haiku-4.5'].includes(request.model) ? null : request.effort,
     context: request.context, softCreditCap: request.maxCredits,
     promptSha256: crypto.createHash('sha256').update(request.prompt).digest('hex'),
     promptBytes: Buffer.byteLength(request.prompt), startedAt: new Date(start).toISOString(),
@@ -210,6 +212,46 @@ export async function run(request, outputDirectory) {
     for (const [signal, handler] of signalHandlers) process.removeListener(signal, handler);
   });
   const { events, truncated } = parseRunEvents(fs.readFileSync(path.join(directory, 'events.jsonl'), 'utf8'), timedOut);
+  const usagePresent = fs.existsSync(path.join(directory, 'usage.json'));
+  if (request.ledger) {
+    if (usagePresent) {
+      try {
+        const usage = normalizeUsage(JSON.parse(
+          fs.readFileSync(path.join(directory, 'usage.json'), 'utf8'),
+        ));
+        settle(request.ledger, reservationId, usage.credits);
+      } catch (error) {
+        markUnknown(request.ledger, reservationId,
+          `Usage telemetry could not be reconciled: ${error.message}`);
+        throw error;
+      }
+    } else {
+      markUnknown(request.ledger, reservationId,
+        'Leaf completed without usage telemetry; exact billed usage requires later reconciliation.');
+    }
+  }
+  let configured;
+  try {
+    configured = resolvedConfiguration(events, {
+      model: request.model,
+      effort: manifest.effort,
+      context: request.context,
+    });
+  } catch (error) {
+    fs.writeFileSync(path.join(directory, 'result.json'), JSON.stringify({
+      ...manifest,
+      ...exit,
+      timedOut,
+      durationMs: Date.now() - start,
+      usagePresent,
+      eventLogTruncated: truncated,
+      resolvedConfiguration: null,
+      configurationVerified: false,
+      configurationError: error.message,
+      warning: 'The model leg is invalid because exact resolved runtime configuration evidence is missing or mismatched.',
+    }, null, 2));
+    throw error;
+  }
   const toolRequested = events.some(event =>
     event.type === 'tool.execution_start' || (event.data?.toolRequests?.length ?? 0) > 0);
   const toolProfiles = events.filter(event => event.type === 'session.usage_checkpoint')
@@ -233,7 +275,9 @@ export async function run(request, outputDirectory) {
   fs.writeFileSync(path.join(directory, 'answer.json'), JSON.stringify(answer, null, 2));
   const result = {
     ...manifest, ...exit, timedOut, durationMs: Date.now() - start,
-    usagePresent: fs.existsSync(path.join(directory, 'usage.json')),
+    resolvedConfiguration: configured,
+    configurationVerified: true,
+    usagePresent,
     eventLogTruncated: truncated, cancellationScope: 'owned-process-tree',
     toolRequested, toolIsolationVerified, scopeVerified, toolCalls: toolRequests.length,
     answerHash: crypto.createHash('sha256').update(JSON.stringify(answer)).digest('hex'),
@@ -249,10 +293,6 @@ export async function run(request, outputDirectory) {
     result.evidenceMode = brokerConfig.mode;
   }
   fs.writeFileSync(path.join(directory, 'result.json'), JSON.stringify(result, null, 2));
-  if (request.ledger && result.usagePresent) {
-    const usage = normalizeUsage(JSON.parse(fs.readFileSync(path.join(directory, 'usage.json'), 'utf8')));
-    settle(request.ledger, reservationId, usage.credits);
-  }
   if (exit.code !== 0 || timedOut || !result.usagePresent || (!research && !broker && toolRequested) ||
       (broker && !result.brokerEvidenceVerified) ||
       !toolIsolationVerified || !scopeVerified || (research && toolRequests.length === 0 && !packetVerified)) {
@@ -261,7 +301,7 @@ export async function run(request, outputDirectory) {
   return result;
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url))) {
   try {
     const request = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
     console.log(JSON.stringify(await run(request, process.argv[3]), null, 2));

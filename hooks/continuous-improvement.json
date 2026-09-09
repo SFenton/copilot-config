@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "hooks": {
+    "userPromptSubmitted": [
+      {
+        "type": "command",
+        "bash": "node \"$HOME/.copilot/skills/budget-workflow/scripts/continuous-improvement.mjs\" user-prompt-submitted",
+        "timeoutSec": 5
+      }
+    ],
+    "postToolUse": [
+      {
+        "type": "command",
+        "bash": "node \"$HOME/.copilot/skills/budget-workflow/scripts/continuous-improvement.mjs\" post-tool-use",
+        "timeoutSec": 5
+      }
+    ],
+    "postToolUseFailure": [
+      {
+        "type": "command",
+        "bash": "node \"$HOME/.copilot/skills/budget-workflow/scripts/continuous-improvement.mjs\" post-tool-use-failure",
+        "timeoutSec": 5
+      }
+    ],
+    "subagentStop": [
+      {
+        "type": "command",
+        "bash": "node \"$HOME/.copilot/skills/budget-workflow/scripts/continuous-improvement.mjs\" subagent-stop",
+        "timeoutSec": 5
+      }
+    ],
+    "agentStop": [
+      {
+        "type": "command",
+        "bash": "node \"$HOME/.copilot/skills/budget-workflow/scripts/continuous-improvement.mjs\" agent-stop",
+        "timeoutSec": 10
+      }
+    ],
+    "sessionEnd": [
+      {
+        "type": "command",
+        "bash": "node \"$HOME/.copilot/skills/budget-workflow/scripts/continuous-improvement.mjs\" session-end",
+        "timeoutSec": 5
+      }
+    ]
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "baseline": {
+    "structuredSlots": {
+      "total": 37,
+      "opportunitySemanticOwner": 9,
+      "opportunityEscalation": 19,
+      "machineSupervisor": 4,
+      "machineException": 5,
+      "mandatoryResidency": 13,
+      "conditionalShaped": 24,
+      "conditionalWithoutConcreteTriggers": 20
+    },
+    "enforcementSites": {
+      "total": 18,
+      "sharedEngineAssertions": 3,
+      "projectCodeAssertions": 2,
+      "authoringSkillInstructionDocConstants": 11,
+      "testCoupling": 1,
+      "measuredExternalPin": 1
+    }
+  },
+  "currentCanonicalSites": [
+    { "project": "shared", "path": "skills/budget-workflow/scripts/team-pipeline.mjs", "category": "shared-engine-assertion" },
+    { "project": "shared", "path": "skills/budget-workflow/scripts/release-machine.mjs", "category": "shared-engine-assertion" },
+    { "project": "ha", "path": "scripts/lib/autonomousAdminRoadmap.ts", "category": "project-code-assertion" },
+    { "project": "fst", "path": "tools/agent-opportunity-preflight.mjs", "category": "project-code-assertion" },
+    { "project": "fst", "path": "tools/FstStoredRankRollout/Program.cs", "category": "project-code-assertion" },
+    { "project": "shared", "path": "skills/budget-workflow/SKILL.md", "category": "authoring-skill-instruction-doc-constant" },
+    { "project": "shared", "path": "skills/tandem-research/SKILL.md", "category": "authoring-skill-instruction-doc-constant" },
+    { "project": "shared", "path": "instructions/budget-workflow.instructions.md", "category": "authoring-skill-instruction-doc-constant" },
+    { "project": "shared", "path": "README.md", "category": "authoring-skill-instruction-doc-constant" },
+    { "project": "ha", "path": ".github/instructions/autonomous-admin.instructions.md", "category": "authoring-skill-instruction-doc-constant" },
+    { "project": "ha", "path": ".github/copilot-instructions.md", "category": "authoring-skill-instruction-doc-constant" },
+    { "project": "ha", "path": "README.md", "category": "authoring-skill-instruction-doc-constant" },
+    { "project": "ha", "path": "docs/autonomous-admin-roadmap.md", "category": "authoring-skill-instruction-doc-constant" },
+    { "project": "ha", "path": ".github/skills/autonomous-hass-admin-executor/SKILL.md", "category": "authoring-skill-instruction-doc-constant" },
+    { "project": "ha", "path": ".github/skills/release-dashboard/SKILL.md", "category": "authoring-skill-instruction-doc-constant" },
+    { "project": "ha", "path": ".github/instructions/simulated-user-panel.instructions.md", "category": "authoring-skill-instruction-doc-constant" },
+    { "project": "ha", "path": ".github/skills/simulated-user-panel/SKILL.md", "category": "authoring-skill-instruction-doc-constant" },
+    { "project": "ha", "path": ".github/instructions/house-style-copy.instructions.md", "category": "authoring-skill-instruction-doc-constant" },
+    { "project": "ha", "path": ".github/skills/house-style-copy/SKILL.md", "category": "authoring-skill-instruction-doc-constant" },
+    { "project": "ha", "path": ".github/skills/house-style-copy/evals/runtime-routing.json", "category": "authoring-skill-instruction-doc-constant" },
+    { "project": "evershelf", "path": ".github/skills/evershelf-budget-workflow/SKILL.md", "category": "authoring-skill-instruction-doc-constant" },
+    { "project": "evershelf", "path": ".github/copilot-instructions.md", "category": "authoring-skill-instruction-doc-constant" },
+    { "project": "ha-evershelf", "path": ".github/skills/ha-evershelf-budget-workflow/SKILL.md", "category": "authoring-skill-instruction-doc-constant" },
+    { "project": "fst", "path": ".github/skills/autonomous-plan-executor/SKILL.md", "category": "authoring-skill-instruction-doc-constant" },
+    { "project": "fst", "path": ".github/skills/fst-budget-workflow/SKILL.md", "category": "authoring-skill-instruction-doc-constant" },
+    { "project": "fst", "path": "docs/governance/agent-budget.md", "category": "authoring-skill-instruction-doc-constant" },
+    { "project": "fst", "path": "docs/roadmap/post-scrape-processing.md", "category": "authoring-skill-instruction-doc-constant" },
+    { "project": "shared", "path": "tests/team-pipeline.test.mjs", "category": "test-coupling" },
+    { "project": "fst", "path": "tools/agent-opportunity-preflight.test.mjs", "category": "test-coupling" },
+    { "project": "ha", "path": ".github/skills/house-style-copy/evals/model-pin.json", "category": "measured-external-pin", "historical": true }
+  ]
+}

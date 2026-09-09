@@ -1,9 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
-import { normalizeUsage, initializeLedger, reserve, settle, summary } from '../skills/budget-workflow/scripts/usage.mjs';
+import { makeScratch } from './helpers/scratch.mjs';
+import {
+  ledgerStatus,
+  markUnknown,
+  normalizeUsage,
+  initializeLedger,
+  reserve,
+  settle,
+  summary,
+} from '../skills/budget-workflow/scripts/usage.mjs';
 
 test('usage uses disjoint billed categories, counts hidden legs once and rejects missing telemetry', () => {
   const raw = { totalNanoAiu: 1131300000, tokenDetails: {
@@ -19,7 +27,7 @@ test('usage uses disjoint billed categories, counts hidden legs once and rejects
 });
 
 test('shared ledger reserves across projects, settles overshoot and fails closed on contention', t => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'budget-ledger-'));
+  const root = makeScratch('budget-ledger-');
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const file = path.join(root, 'ledger.json');
   initializeLedger(file, 100, 10);
@@ -37,8 +45,31 @@ test('shared ledger reserves across projects, settles overshoot and fails closed
   assert.throws(() => initializeLedger(file, 100, 0), /EEXIST/);
 });
 
+test('missing usage remains an unreconciled reservation and blocks savings', t => {
+  const root = makeScratch('budget-ledger-unknown-');
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const file = path.join(root, 'ledger.json');
+  initializeLedger(file, 100, 5);
+  reserve(file, 'missing', 30);
+  assert.equal(ledgerStatus(file).savingsEligible, false);
+  markUnknown(file, 'missing', 'usage telemetry missing');
+  assert.deepEqual(ledgerStatus(file), {
+    version: 2,
+    month: new Date().toISOString().slice(0, 7),
+    limitCredits: 100,
+    knownSpentCredits: 5,
+    activeReservedCredits: 0,
+    unreconciledReservedCredits: 30,
+    reservedExposure: 30,
+    savingsEligible: false,
+  });
+  assert.throws(() => reserve(file, 'too-much', 70), /exhausted/);
+  settle(file, 'missing', 7);
+  assert.equal(ledgerStatus(file).knownSpentCredits, 12);
+});
+
 test('usage summary does not call an out-of-scope research run complete', t => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'usage-summary-'));
+  const root = makeScratch('usage-summary-');
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.writeFileSync(path.join(root, 'result.json'), JSON.stringify({
     code: 0, timedOut: false, toolIsolationVerified: true, scopeVerified: false,
@@ -47,4 +78,6 @@ test('usage summary does not call an out-of-scope research run complete', t => {
   const result = summary([root]);
   assert.equal(result.runs[0].complete, false);
   assert.equal(result.unknownUsageRuns, 1);
+  assert.equal(result.creditsLowerBound, 0);
+  assert.equal(result.savingsEligible, false);
 });

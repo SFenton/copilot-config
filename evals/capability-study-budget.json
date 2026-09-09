@@ -1,0 +1,76 @@
+{
+  "version": 2,
+  "availableCredits": 300,
+  "activeReservations": [],
+  "minimumExpectedSavings": 0.2,
+  "runStudy": false,
+  "authorizedModelCalls": 0,
+  "topologyDefinitions": [
+    {
+      "id": "direct-frontier-baseline",
+      "mandatoryProductionLegs": ["planning", "evidence", "implementation", "deterministic-validation", "review"]
+    },
+    {
+      "id": "research-spec-medium-cheap-review",
+      "mandatoryProductionLegs": ["planning", "evidence", "medium-coordination", "implementation", "deterministic-validation", "medium-review"]
+    },
+    {
+      "id": "medium-owner-cheap-worker-medium-review",
+      "mandatoryProductionLegs": ["planning", "evidence", "medium-coordination", "implementation", "deterministic-validation", "medium-review"]
+    },
+    {
+      "id": "medium-owner-only",
+      "mandatoryProductionLegs": ["planning", "evidence", "medium-owner", "deterministic-validation", "review"]
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "ha-react-focused-tests",
+      "project": "ha-react",
+      "sandboxQualified": true,
+      "currentCases": 3,
+      "targetCases": 30,
+      "candidateTopology": "medium-owner-cheap-worker-medium-review",
+      "productionExpectedCredits": {
+        "direct-frontier-baseline": null,
+        "medium-owner-cheap-worker-medium-review": null
+      }
+    },
+    {
+      "id": "evershelf-focused-tests",
+      "project": "evershelf",
+      "sandboxQualified": true,
+      "currentCases": 3,
+      "targetCases": 30,
+      "candidateTopology": "medium-owner-cheap-worker-medium-review",
+      "productionExpectedCredits": {
+        "direct-frontier-baseline": null,
+        "medium-owner-cheap-worker-medium-review": null
+      }
+    },
+    {
+      "id": "ha-evershelf-focused-tests",
+      "project": "ha-evershelf",
+      "sandboxQualified": true,
+      "currentCases": 0,
+      "targetCases": 30,
+      "candidateTopology": "medium-owner-cheap-worker-medium-review",
+      "productionExpectedCredits": {
+        "direct-frontier-baseline": null,
+        "medium-owner-cheap-worker-medium-review": null
+      }
+    },
+    {
+      "id": "fst-web-formatter-tests",
+      "project": "festival-score-tracker",
+      "sandboxQualified": true,
+      "currentCases": 3,
+      "targetCases": 30,
+      "candidateTopology": "medium-owner-cheap-worker-medium-review",
+      "productionExpectedCredits": {
+        "direct-frontier-baseline": null,
+        "medium-owner-cheap-worker-medium-review": null
+      }
+    }
+  ]
+}

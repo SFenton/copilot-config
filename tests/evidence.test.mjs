@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { makeScratch } from './helpers/scratch.mjs';
 import { taskPlan, delegationDecision } from '../skills/budget-workflow/scripts/evidence/modes.mjs';
 import { RepositoryEvidence, sourceUnits } from '../skills/budget-workflow/scripts/evidence/repository.mjs';
 import { approvedUrl, publicAddress, extractDocument, WebEvidence } from '../skills/budget-workflow/scripts/evidence/web.mjs';
@@ -13,7 +13,7 @@ import { observedWebEvidence } from '../evals/mode-study.mjs';
 import { webSourceId } from '../skills/budget-workflow/scripts/evidence/web.mjs';
 
 function fixture(t) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'evidence-test-'));
+  const root = makeScratch('evidence-test-');
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const repo = path.join(root, 'repo');
   fs.mkdirSync(path.join(repo, 'src'), { recursive: true });
