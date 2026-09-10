@@ -15,14 +15,18 @@ safety contracts win.
    missing safety gates or use evidence tools to bypass content exclusions.
 2. For <=5 straightforward reads/edits/commands, act directly. The setup cost of
    a broker is not justified by a single symbol lookup.
-   For a substantive retained-owner task in a repository with
-   `opportunityPolicy`, run `scripts/opportunities.mjs plan ROOT TASK.json` and
-   execute the returned version 3 team pipeline in order. Deterministic routing,
-   evidence collection, registered tools, and receipts launch no model. Known
-   patterns use the exact project medium coordinator/reviewer. Research,
-   specification, and risk-triggered frontier review require a named,
-   evidence-bound trigger receipt; task terminology or consequence alone is
-   never a stronger-model trigger.
+   For a substantive retained-owner project task, run
+   `scripts/opportunities.mjs plan ROOT TASK.json` even when the current branch
+   predates the adapter's opportunity-policy fields. The planner may use the one
+   valid policy bundle from an already-fetched local default-branch ref and
+   never fetches or changes the worktree. Execute a returned version 3 team
+   pipeline in order. Deterministic routing, evidence collection, registered
+   tools, and receipts launch no model. The plan is advisory routing evidence,
+   not repository-apply or side-effect authority. Known patterns use the exact
+   project medium coordinator/reviewer. Research, specification, and
+   risk-triggered frontier review require a named, evidence-bound trigger
+   receipt; task terminology or consequence alone is never a stronger-model
+   trigger.
 3. For research, separate **evidence location** from **risk**:
    repository-only, external-only, or hybrid. Unknown repository relevance needs
    a bounded local probe; one failed search does not establish absence.
@@ -59,6 +63,14 @@ candidate; one-offs and unstable work no-op or defer. Existing registered
 tools and skills are superseding evidence, not new work.
 
 Each `userPromptSubmitted` starts a new privacy-safe workflow identity.
+Git-root discovery does not depend on policy files in the current worktree.
+When an older branch has no valid local learning adapter, capture may use the
+one valid policy bundle available from an already-fetched local default-branch
+ref. It performs no fetch and records only source ref/hash metadata. Exact opportunity triggers may add a non-authorizing hint before the planner
+binds the full plan. Historical `backfill-events` imports may accept an explicit
+enabled opportunity ID only when a prompt has no unique exact trigger. That
+operator/coordinator classification is hashed, remains non-authorizing, and
+never stores supplied text.
 The opportunity planner binds its selected version 3 plan to that active
 workflow by session ID when one is available, or by the unique recent exact
 `task.question`/prompt hash when it is not. Duplicate prompt-hash matches across
@@ -79,6 +91,13 @@ rollback, integration and all-leg accounting receipts. Live, release,
 production, destructive, security, credential, provider, provenance and
 subjective visual work remains skill/policy evidence only and gains no
 execution authority.
+Events, sessions, markers, and candidate ledgers aggregate under a hashed
+logical repository identity shared by linked worktrees. Incubation remains in
+the selected worktree's Git metadata and records its revision/tree binding.
+`continuous-improvement.mjs backfill-events ROOT EVENTS.jsonl` imports local
+Copilot lifecycle files using only sanitized hashes, byte counts, operation
+shapes, result classes, and source-event hashes; rerunning the same file is a
+no-op.
 Shell commands retain only exact and normalized command-shape hashes. A narrow
 local inventory/validation allowlist may be classified as none, workspace, or
 local-container; unknown, network, live, deployment, and destructive commands

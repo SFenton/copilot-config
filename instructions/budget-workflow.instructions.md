@@ -13,10 +13,14 @@ Keep one owner and prefer deterministic tools. For research, choose repository,
 external or hybrid evidence; load only the relevant guide. Use a project's
 `.github/agent-budget.json` when present. Without one, use native project rules
 and direct tools rather than requiring a special checkout or inventing policy.
-When the adapter names an `opportunityPolicy`, resolve one exact opportunity
-with `scripts/opportunities.mjs` before selecting a model, specialist skill, or
-tooling path. Version 3 runs the deterministic router, evidence collection, and
-registered local tools without a model launch or model-bound authorization.
+For substantive project work, run the installed
+`scripts/opportunities.mjs plan ROOT TASK.json` before selecting a model,
+specialist skill, or tooling path, even when the current branch predates the
+adapter's `opportunityPolicy` fields. The planner may read the one valid policy
+bundle from an already-fetched local default-branch ref; it never fetches or
+modifies the worktree. Version 3 runs the deterministic router, evidence
+collection, and registered local tools without a model launch or model-bound
+authorization.
 Known-pattern work then uses the exact project medium coordinator/reviewer.
 Research, specification, or critical frontier profiles run only after a named
 trigger receipt. The overall interactive model never bypasses these pins.
@@ -49,6 +53,9 @@ The installed continuous-improvement hook starts a private workflow identity at
 each `userPromptSubmitted` event and observes only sanitized lifecycle metadata.
 The deterministic opportunity planner binds the selected plan to that workflow
 through the session ID before substantive execution.
+Its plan and any default-ref policy are advisory routing evidence only. They do
+not grant repository-apply, external, live, release, production, destructive,
+credential, or other side-effect authority.
 It stores hashes, byte counts, operation/path/risk shapes, receipt lineage,
 result classes and reconciled usage, never raw prompts, responses, tool results,
 source, commands, credentials or environment values. It silently allows

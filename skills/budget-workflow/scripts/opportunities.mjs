@@ -28,6 +28,7 @@ import {
 import {
   bindPromptWorkflow,
   bindRecentPromptWorkflow,
+  readEffectiveOpportunityPolicyBundle,
 } from './continuous-improvement.mjs';
 const STRATEGIES = new Set([
   'deterministic-owner',
@@ -150,6 +151,42 @@ export function readOpportunityPolicy(root, adapter = readAdapter(root)) {
     }
   }
   return policy;
+}
+
+function currentAdapterDeclaresOpportunityPolicy(root) {
+  const file = path.join(root, '.github/agent-budget.json');
+  if (!fs.statSync(file, { throwIfNoEntry: false })?.isFile()) return false;
+  try {
+    const adapter = JSON.parse(fs.readFileSync(file, 'utf8'));
+    return adapter?.version === 1 &&
+      typeof adapter.opportunityPolicy === 'string' &&
+      adapter.opportunityPolicy.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+export function readEffectiveOpportunityPolicy(root) {
+  try {
+    return readOpportunityPolicy(root);
+  } catch (error) {
+    if (currentAdapterDeclaresOpportunityPolicy(root)) throw error;
+  }
+  const effective = readEffectiveOpportunityPolicyBundle(root);
+  assert(effective.opportunityPolicy?.version === 3,
+    'Effective default-ref opportunity policy must be version 3');
+  validateOpportunityPolicyV3(
+    effective.opportunityPolicy,
+    effective.toolRegistry,
+    {
+      opportunityPacket: effective.opportunityEvaluationPacket,
+      workerPacket: effective.workerEvaluationPacket,
+    },
+  );
+  return {
+    ...effective.opportunityPolicy,
+    toolRegistry: effective.toolRegistry,
+  };
 }
 
 function deterministicWorkflow(item) {
@@ -559,7 +596,7 @@ export function executeOpportunityPhase(root, policy, task, phaseId, authorizati
 if (process.argv[1] && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url))) {
   try {
     const [command, root, taskFile] = process.argv.slice(2);
-    const policy = readOpportunityPolicy(root);
+    const policy = readEffectiveOpportunityPolicy(root);
     if (command === 'validate') console.log(JSON.stringify(policy, null, 2));
     else if (command === 'plan') {
       const task = JSON.parse(fs.readFileSync(taskFile, 'utf8'));

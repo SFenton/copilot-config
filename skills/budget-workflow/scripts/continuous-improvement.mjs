@@ -5,9 +5,15 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { contained, readAdapter } from './budget.mjs';
-import { canonicalJson, sha256 } from './workflow.mjs';
+import {
+  canonicalJson,
+  sha256,
+  validateOpportunityPolicyV2,
+  validateToolRegistry,
+} from './workflow.mjs';
 import { mineCandidates } from './improvement-candidates.mjs';
 import { createReplayPlan, incubateCandidate } from './improvement-replay.mjs';
+import { validateOpportunityPolicyV3 } from './team-pipeline.mjs';
 
 const EVENT_KINDS = new Set([
   'user-prompt-submitted',
@@ -41,14 +47,13 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
-function findRoot(cwd) {
-  let current = path.resolve(cwd);
-  while (true) {
-    if (fs.statSync(path.join(current, '.github/agent-budget.json'),
-      { throwIfNoEntry: false })?.isFile()) return current;
-    const parent = path.dirname(current);
-    if (parent === current) return null;
-    current = parent;
+export function findRoot(cwd) {
+  try {
+    return fs.realpathSync(execFileSync('git', [
+      '-C', path.resolve(cwd), 'rev-parse', '--show-toplevel',
+    ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim());
+  } catch {
+    return null;
   }
 }
 
@@ -306,6 +311,342 @@ function writePrivateJson(file, value, options = {}) {
   });
 }
 
+function gitOutput(root, args) {
+  try {
+    return execFileSync('git', ['-C', root, ...args], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+
+function safePolicyPath(relative) {
+  assert(typeof relative === 'string' && relative.length > 0 &&
+    !path.isAbsolute(relative), 'Project policy path must be repository-relative');
+  const normalized = path.posix.normalize(relative.replaceAll(path.sep, '/'));
+  assert(normalized !== '..' && !normalized.startsWith('../') &&
+    normalized !== '.git' && !normalized.startsWith('.git/'),
+  'Project policy path escapes repository');
+  return normalized;
+}
+
+function validateAdapterDocument(adapter, readText) {
+  assert(adapter?.version === 1 && typeof adapter.project === 'string' &&
+    adapter.project.length > 0, 'Invalid adapter version/project');
+  for (const key of ['instructions', 'riskTerms', 'gates']) {
+    assert(Array.isArray(adapter[key]) &&
+      adapter[key].every(item => typeof item === 'string'),
+    `Invalid adapter ${key}`);
+  }
+  assert(adapter.instructions.length > 0 && adapter.gates.length > 0,
+    'Adapter must retain instructions and gates');
+  for (const instruction of adapter.instructions) readText(safePolicyPath(instruction));
+  for (const key of [
+    'learningPolicy',
+    'opportunityPolicy',
+    'toolRegistry',
+    'opportunityEvaluation',
+    'workerEvaluation',
+    'delegationPolicy',
+    'releaseMachine',
+    'destructiveMaintenanceMachine',
+  ]) {
+    if (Object.hasOwn(adapter, key)) {
+      assert(typeof adapter[key] === 'string' && adapter[key].length > 0,
+        `Invalid adapter ${key}`);
+      readText(safePolicyPath(adapter[key]));
+    }
+  }
+  return adapter;
+}
+
+function validateOpportunityHintPolicy(value, project) {
+  assert(value && typeof value === 'object' && value.project === project,
+    'Opportunity policy project mismatch');
+  assert([1, 2, 3].includes(value.version) &&
+    Array.isArray(value.opportunities) && value.opportunities.length > 0,
+  'Opportunity policy is invalid');
+  for (const opportunity of value.opportunities) {
+    assert(ID_PATTERN.test(opportunity.id), 'Opportunity policy ID is invalid');
+    if (opportunity.triggers !== undefined) {
+      assert(Array.isArray(opportunity.triggers) &&
+        opportunity.triggers.every(trigger =>
+          typeof trigger === 'string' && trigger.length > 1),
+      'Opportunity trigger policy is invalid');
+    }
+  }
+  return value;
+}
+
+function loadPolicyBundle(readText, source) {
+  const adapter = validateAdapterDocument(
+    JSON.parse(readText('.github/agent-budget.json')),
+    readText,
+  );
+  assert(typeof adapter.learningPolicy === 'string',
+    'Repository has no learning policy');
+  const policy = validateLearningPolicy(
+    JSON.parse(readText(safePolicyPath(adapter.learningPolicy))),
+    adapter.project,
+  );
+  const registry = typeof adapter.toolRegistry === 'string'
+    ? validateToolRegistry(
+        JSON.parse(readText(safePolicyPath(adapter.toolRegistry))),
+        adapter.project,
+      )
+    : { version: 1, project: adapter.project, tools: [] };
+  const opportunityEvaluationPacket =
+    typeof adapter.opportunityEvaluation === 'string'
+      ? JSON.parse(readText(safePolicyPath(adapter.opportunityEvaluation)))
+      : null;
+  const workerEvaluationPacket = typeof adapter.workerEvaluation === 'string'
+    ? JSON.parse(readText(safePolicyPath(adapter.workerEvaluation)))
+    : null;
+  const opportunityPolicy = typeof adapter.opportunityPolicy === 'string'
+    ? JSON.parse(readText(safePolicyPath(adapter.opportunityPolicy)))
+    : null;
+  if (opportunityPolicy?.version === 3) {
+    validateOpportunityPolicyV3(opportunityPolicy, registry, {
+      opportunityPacket: opportunityEvaluationPacket,
+      workerPacket: workerEvaluationPacket,
+    });
+  } else if (opportunityPolicy?.version === 2) {
+    validateOpportunityPolicyV2(opportunityPolicy, registry);
+  } else if (opportunityPolicy !== null) {
+    validateOpportunityHintPolicy(opportunityPolicy, adapter.project);
+  }
+  const sourceHash = sha256({
+    adapter,
+    policy,
+    toolRegistry: registry,
+    opportunityPolicy,
+    opportunityEvaluationPacket,
+    workerEvaluationPacket,
+  });
+  return {
+    adapter,
+    policy: {
+      ...policy,
+      knownTools: [...new Set([
+        ...(policy.knownTools ?? []),
+        ...registry.tools.map(tool => tool.id),
+      ])].sort(),
+    },
+    toolRegistry: registry,
+    opportunityPolicy,
+    opportunityEvaluationPacket,
+    workerEvaluationPacket,
+    source: { ...source, sourceHash },
+  };
+}
+
+function currentPolicyBundle(root) {
+  const adapterFile = path.join(root, '.github/agent-budget.json');
+  if (!fs.statSync(adapterFile, { throwIfNoEntry: false })?.isFile()) return null;
+  try {
+    const bundle = loadPolicyBundle(relative => {
+      const file = path.resolve(root, safePolicyPath(relative));
+      const resolved = fs.realpathSync(file);
+      const relation = path.relative(root, resolved);
+      assert(relation !== '..' && !relation.startsWith(`..${path.sep}`),
+        'Project policy path escapes repository');
+      return fs.readFileSync(resolved, 'utf8');
+    }, {
+      kind: 'worktree',
+      ref: null,
+      revision: gitOutput(root, ['rev-parse', 'HEAD']),
+    });
+    const projectSkills = fs.statSync(path.join(root, '.github/skills'),
+      { throwIfNoEntry: false })?.isDirectory()
+      ? fs.readdirSync(path.join(root, '.github/skills'), { withFileTypes: true })
+        .filter(entry => entry.isDirectory())
+        .map(entry => entry.name)
+      : [];
+    return {
+      ...bundle,
+      policy: {
+        ...bundle.policy,
+        knownSkills: [...new Set([
+          ...(bundle.policy.knownSkills ?? []),
+          ...projectSkills,
+        ])].sort(),
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+function configuredRemote(root) {
+  const upstream = gitOutput(root, ['rev-parse', '--abbrev-ref', '--symbolic-full-name',
+    '@{upstream}']);
+  if (upstream?.includes('/')) return upstream.split('/')[0];
+  const pushDefault = gitOutput(root, ['config', '--get', 'remote.pushDefault']);
+  if (pushDefault) return pushDefault;
+  const remotes = (gitOutput(root, ['remote']) ?? '').split('\n').filter(Boolean);
+  if (remotes.includes('origin')) return 'origin';
+  if (remotes.includes('upstream')) return 'upstream';
+  return remotes.length === 1 ? remotes[0] : null;
+}
+
+function fallbackPolicyRefGroups(root) {
+  const groups = [];
+  const remote = configuredRemote(root);
+  if (remote) {
+    const remoteHead = gitOutput(root, ['symbolic-ref', '--quiet', '--short',
+      `refs/remotes/${remote}/HEAD`]);
+    if (remoteHead) groups.push([remoteHead]);
+    const upstream = gitOutput(root, ['rev-parse', '--abbrev-ref',
+      '--symbolic-full-name', '@{upstream}']);
+    if (upstream && /\/(?:main|master)$/.test(upstream)) groups.push([upstream]);
+  }
+  groups.push(['origin/master', 'origin/main', 'upstream/main']);
+  return groups.map(group => [...new Set(group)].filter(ref =>
+    gitOutput(root, ['rev-parse', '--verify', `${ref}^{commit}`])));
+}
+
+function fallbackPolicyBundle(root, options = {}) {
+  for (const refs of fallbackPolicyRefGroups(root)) {
+    const valid = [];
+    for (const ref of refs) {
+      const revision = gitOutput(root, ['rev-parse', '--verify', `${ref}^{commit}`]);
+      try {
+        const bundle = loadPolicyBundle(relative => execFileSync('git', [
+          '-C', root, 'show', `${ref}:${safePolicyPath(relative)}`,
+        ], {
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+        }), {
+          kind: 'git-ref',
+          ref,
+          revision,
+        });
+        if (!options.requireOpportunityPolicyV3 ||
+          bundle.opportunityPolicy?.version === 3) {
+          valid.push(bundle);
+        }
+      } catch {
+        // Invalid refs are not policy sources.
+      }
+    }
+    const unique = new Map(valid.map(bundle => [
+      `${bundle.source.revision}:${bundle.source.sourceHash}`,
+      bundle,
+    ]));
+    if (unique.size === 1) return unique.values().next().value;
+    assert(unique.size === 0,
+      'Repository has ambiguous default-branch learning policy sources');
+  }
+  throw new Error('Repository has no valid learning policy source');
+}
+
+export function readEffectiveOpportunityPolicyBundle(root) {
+  const gitRoot = findRoot(root);
+  assert(gitRoot, 'Repository root not found');
+  const current = currentPolicyBundle(gitRoot);
+  const bundle = current?.opportunityPolicy?.version === 3
+    ? current
+    : fallbackPolicyBundle(gitRoot, { requireOpportunityPolicyV3: true });
+  return { root: gitRoot, ...bundle };
+}
+
+export function readEffectiveProjectPolicy(root) {
+  const gitRoot = findRoot(root);
+  assert(gitRoot, 'Repository root not found');
+  const current = currentPolicyBundle(gitRoot);
+  const bundle = current ?? fallbackPolicyBundle(gitRoot);
+  const personalSkillsRoot = path.join(
+    process.env.COPILOT_HOME ?? path.join(os.homedir(), '.copilot'),
+    'skills',
+  );
+  const personalSkills = fs.statSync(personalSkillsRoot,
+    { throwIfNoEntry: false })?.isDirectory()
+    ? fs.readdirSync(personalSkillsRoot, { withFileTypes: true })
+      .filter(entry => entry.isDirectory() || entry.isSymbolicLink())
+      .map(entry => entry.name)
+    : [];
+  return {
+    root: gitRoot,
+    ...bundle,
+    policy: {
+      ...bundle.policy,
+      knownSkills: [...new Set([
+        ...(bundle.policy.knownSkills ?? []),
+        ...personalSkills,
+      ])].sort(),
+    },
+  };
+}
+
+function normalizedRemoteIdentity(value) {
+  if (typeof value !== 'string' || value.length === 0) return null;
+  let host;
+  let repositoryPath;
+  try {
+    const parsed = new URL(value);
+    host = parsed.hostname.toLowerCase();
+    repositoryPath = decodeURIComponent(parsed.pathname);
+  } catch {
+    const scp = /^(?:[^@/\s]+@)?([^:/\s]+):(.+)$/.exec(value);
+    if (!scp) return null;
+    host = scp[1].toLowerCase();
+    repositoryPath = scp[2];
+  }
+  const normalizedPath = repositoryPath.replace(/^\/+|\/+$/g, '')
+    .replace(/\.git$/i, '').toLowerCase();
+  return host && normalizedPath ? `${host}/${normalizedPath}` : null;
+}
+
+export function logicalRepositoryIdentity(root, project) {
+  const remote = configuredRemote(root);
+  const candidates = [
+    remote,
+    'origin',
+    'upstream',
+  ].filter(Boolean);
+  let identity = null;
+  for (const name of [...new Set(candidates)]) {
+    identity = normalizedRemoteIdentity(gitOutput(root, ['remote', 'get-url', name]));
+    if (identity) break;
+  }
+  if (!identity) {
+    const identities = [...new Set((gitOutput(root, ['remote']) ?? '')
+      .split('\n')
+      .filter(Boolean)
+      .map(name => normalizedRemoteIdentity(
+        gitOutput(root, ['remote', 'get-url', name])))
+      .filter(Boolean))];
+    if (identities.length === 1) [identity] = identities;
+  }
+  const repositoryIdentityHash = identity
+    ? sha256(`remote:${identity}`)
+    : sha256(`git-common-dir:${fs.realpathSync(path.resolve(root,
+        gitOutput(root, ['rev-parse', '--git-common-dir'])))}`);
+  return {
+    projectId: project,
+    repositoryIdentityHash,
+    repositoryHash: sha256({ projectId: project, repositoryIdentityHash }),
+  };
+}
+
+function resolveContext(root, options = {}) {
+  const effective = options.effective ?? readEffectiveProjectPolicy(root);
+  const identity = options.identity ??
+    logicalRepositoryIdentity(effective.root, effective.adapter.project);
+  return { ...effective, identity };
+}
+
+function opportunityHint(prompt, opportunityPolicy) {
+  if (typeof prompt !== 'string' || !opportunityPolicy) return null;
+  const question = prompt.toLowerCase();
+  const matches = opportunityPolicy.opportunities.filter(item =>
+    item.enabled !== false &&
+    (item.triggers ?? []).some(trigger => question.includes(trigger.toLowerCase())));
+  return matches.length === 1 ? matches[0].id : null;
+}
+
 function selectedOpportunity(payload) {
   const values = [
     payload.opportunityId,
@@ -335,8 +676,9 @@ function activeWorkflowFiles(home, repositoryHash) {
 }
 
 export function beginPromptWorkflow(root, payload, options = {}) {
-  const adapter = options.adapter ?? readAdapter(root);
-  const repositoryHash = sha256(fs.realpathSync(root));
+  const context = options.context ?? resolveContext(root, options);
+  const adapter = options.adapter ?? context.adapter;
+  const repositoryHash = context.identity.repositoryHash;
   const sessionId = sha256(`session:${payload.sessionId ?? 'unknown'}`);
   const home = options.home ?? process.env.COPILOT_HOME ?? path.join(os.homedir(), '.copilot');
   const previous = activeWorkflow(home, repositoryHash, sessionId);
@@ -354,8 +696,12 @@ export function beginPromptWorkflow(root, payload, options = {}) {
   if (improvementTask) fs.unlinkSync(pendingFile);
   const promptIndex = (previous?.promptIndex ?? 0) + 1;
   const timestamp = normalizeTimestamp(options.timestamp ?? payload.timestamp ?? Date.now());
-  const opportunityId = selectedOpportunity(payload);
+  const explicitOpportunity = selectedOpportunity(payload);
+  const hintedOpportunity = opportunityHint(prompt, context.opportunityPolicy);
+  const opportunityId = explicitOpportunity ?? hintedOpportunity;
   const plan = payload.plan ?? payload.selectedPlan ?? null;
+  const opportunityClassificationSupplied =
+    options.opportunityClassificationSupplied === true;
   const unsigned = {
     version: 1,
     repositoryHash,
@@ -371,6 +717,14 @@ export function beginPromptWorkflow(root, payload, options = {}) {
     promptHash: promptEvidence.hash,
     promptBytes: promptEvidence.bytes,
     opportunityId,
+    opportunityHint: explicitOpportunity === null && hintedOpportunity !== null,
+    opportunityClassificationSupplied,
+    opportunityClassificationHash: opportunityClassificationSupplied
+      ? sha256({
+          kind: 'operator-coordinator-backfill-classification',
+          opportunityId,
+        })
+      : null,
     planHash: plan === null ? null : sha256(plan),
     improvementTask,
     startedAt: timestamp,
@@ -390,7 +744,8 @@ export function bindRecentPromptWorkflow(root, question, opportunityId, plan,
     plan.status === 'ready' &&
     plan.enabled !== false,
   'Only a ready enabled opportunity plan can bind a workflow');
-  const repositoryHash = sha256(fs.realpathSync(root));
+  const context = options.context ?? resolveContext(root, options);
+  const repositoryHash = context.identity.repositoryHash;
   const home = options.home ?? process.env.COPILOT_HOME ?? path.join(os.homedir(), '.copilot');
   const now = options.now ?? Date.now();
   const recentWindowMs = options.recentWindowMs ?? 30 * 60 * 1000;
@@ -421,6 +776,7 @@ export function bindRecentPromptWorkflow(root, question, opportunityId, plan,
   const unsigned = {
     ...Object.fromEntries(Object.entries(current).filter(([key]) => key !== 'stateHash')),
     opportunityId,
+    opportunityHint: false,
     planHash: sha256(plan),
   };
   const state = { ...unsigned, stateHash: sha256(unsigned) };
@@ -437,7 +793,8 @@ export function bindPromptWorkflow(root, rawSessionId, opportunityId, plan,
     plan.status === 'ready' &&
     plan.enabled !== false,
   'Only a ready enabled opportunity plan can bind a workflow');
-  const repositoryHash = sha256(fs.realpathSync(root));
+  const context = options.context ?? resolveContext(root, options);
+  const repositoryHash = context.identity.repositoryHash;
   const sessionId = sha256(`session:${rawSessionId}`);
   const home = options.home ?? process.env.COPILOT_HOME ?? path.join(os.homedir(), '.copilot');
   const current = activeWorkflow(home, repositoryHash, sessionId);
@@ -447,6 +804,7 @@ export function bindPromptWorkflow(root, rawSessionId, opportunityId, plan,
   const unsigned = {
     ...Object.fromEntries(Object.entries(current).filter(([key]) => key !== 'stateHash')),
     opportunityId,
+    opportunityHint: false,
     planHash: sha256(plan),
   };
   const state = { ...unsigned, stateHash: sha256(unsigned) };
@@ -575,9 +933,24 @@ export function sanitizeHookEvent(eventKind, payload, options = {}) {
   const discovered = options.root ?? findRoot(payload.cwd ?? process.cwd());
   assert(discovered, 'Repository root not found');
   const root = fs.realpathSync(discovered);
-  const adapter = options.adapter ?? readAdapter(root);
-  const policy = options.policy ?? readLearningPolicy(root, adapter);
-  const repositoryHash = sha256(root);
+  const context = options.context ?? (
+    options.adapter && options.policy && options.identity
+      ? {
+          adapter: options.adapter,
+          policy: options.policy,
+          identity: options.identity,
+          source: options.policySource ?? {
+            kind: 'worktree',
+            ref: null,
+            revision: options.revision ?? gitOutput(root, ['rev-parse', 'HEAD']),
+            sourceHash: null,
+          },
+        }
+      : resolveContext(root, options)
+  );
+  const adapter = options.adapter ?? context.adapter;
+  const policy = options.policy ?? context.policy;
+  const repositoryHash = context.identity.repositoryHash;
   const sessionId = sha256(`session:${payload.sessionId ?? 'unknown'}`);
   const home = options.home ?? process.env.COPILOT_HOME ?? path.join(os.homedir(), '.copilot');
   const workflowState = options.workflowState ??
@@ -619,16 +992,16 @@ export function sanitizeHookEvent(eventKind, payload, options = {}) {
   const inferredRisk = inferRisk(toolId, rawArgs, commandEvidence);
   const opportunityId = selectedOpportunity(payload) ??
     options.opportunityId ?? workflowState?.opportunityId ?? null;
-  const resultClass = eventKind === 'post-tool-use-failure'
+  const resultClass = ['accepted', 'rejected', 'failed', 'rollback', 'observed']
+    .includes(payload.outcomeClass)
+    ? payload.outcomeClass
+    : eventKind === 'post-tool-use-failure'
     ? 'abnormal-failure'
     : eventKind === 'post-tool-use'
       ? 'accepted'
       : eventKind === 'session-end'
         ? sessionOutcome(payload.reason)
-        : ['accepted', 'rejected', 'failed', 'rollback', 'observed']
-            .includes(payload.outcomeClass)
-          ? payload.outcomeClass
-          : 'observed';
+        : 'observed';
   const record = {
     version: 1,
     schema: 'agent-learning-event-v1',
@@ -639,8 +1012,13 @@ export function sanitizeHookEvent(eventKind, payload, options = {}) {
     projectId: adapter.project,
     opportunityId: ID_PATTERN.test(opportunityId ?? '') ? opportunityId : null,
     repositoryHash,
+    repositoryIdentityHash: context.identity.repositoryIdentityHash,
     revision: options.revision ?? execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'],
       { encoding: 'utf8' }).trim(),
+    policySourceKind: context.source.kind,
+    policySourceRef: context.source.ref,
+    policySourceRevision: context.source.revision,
+    policySourceHash: context.source.sourceHash,
     timestamp: normalizeTimestamp(options.timestamp ?? payload.timestamp ?? Date.now()),
     eventKind,
     parentEventHash: options.previousEventHash ?? null,
@@ -672,6 +1050,13 @@ export function sanitizeHookEvent(eventKind, payload, options = {}) {
     errorBytes: errorEvidence.bytes,
     responseHash: subagentEvidence.hash,
     responseBytes: subagentEvidence.bytes,
+    skillIdentityHash: options.skillIdentityHash ?? null,
+    sourceEventIdHash: options.sourceEventIdHash ?? null,
+    sourceEventHash: options.sourceEventHash ?? null,
+    opportunityClassificationSupplied:
+      workflowState?.opportunityClassificationSupplied === true,
+    opportunityClassificationHash:
+      workflowState?.opportunityClassificationHash ?? null,
     transcriptMetadataHash: transcriptMetadataHash(payload),
     receiptHash: options.receiptHash ?? null,
     validatorClass: options.validatorClass ?? null,
@@ -818,9 +1203,10 @@ function gitLearningRoot(root) {
   return path.resolve(root, value);
 }
 
-function candidateLedgerFile(root, candidateId) {
+function candidateLedgerFile(home, repositoryHash, candidateId) {
   assert(ID_PATTERN.test(candidateId), 'Candidate ID must be safe kebab-case');
-  return path.join(gitLearningRoot(root), 'candidates', candidateId, 'ledger.json');
+  return path.join(stateRoot(home), repositoryHash, 'candidates',
+    candidateId, 'ledger.json');
 }
 
 function candidateLedgerUnsigned(candidate, existing = null) {
@@ -836,14 +1222,18 @@ function candidateLedgerUnsigned(candidate, existing = null) {
     promptMarker: existing?.promptMarker ?? null,
     evidence: existing?.evidence ?? {},
     history: existing?.history ?? [],
+    incubationBinding: existing?.incubationBinding ?? null,
+    validatedWorktrees: existing?.validatedWorktrees ?? [],
     updatedAt: new Date().toISOString(),
   };
 }
 
-export function persistCandidateLedger(root, candidate, update = {}) {
-  const file = candidateLedgerFile(root, candidate.id);
+export function persistCandidateLedger(root, candidate, update = {}, options = {}) {
+  const context = options.context ?? resolveContext(root, options);
+  const home = options.home ?? process.env.COPILOT_HOME ?? path.join(os.homedir(), '.copilot');
+  const file = candidateLedgerFile(home, context.identity.repositoryHash, candidate.id);
   const existing = fs.statSync(file, { throwIfNoEntry: false })?.isFile()
-    ? readCandidateLedger(root, candidate.id)
+    ? readCandidateLedger(root, candidate.id, { ...options, context, home })
     : null;
   const unsigned = {
     ...candidateLedgerUnsigned(candidate, existing),
@@ -854,32 +1244,39 @@ export function persistCandidateLedger(root, candidate, update = {}) {
       ...(existing?.history ?? []),
       ...(update.history ?? []),
     ],
+    repositoryHash: context.identity.repositoryHash,
   };
   const ledger = { ...unsigned, ledgerHash: sha256(unsigned) };
   writePrivateJson(file, ledger);
   return ledger;
 }
 
-export function readCandidateLedger(root, candidateId) {
-  const ledger = readJson(candidateLedgerFile(root, candidateId));
+export function readCandidateLedger(root, candidateId, options = {}) {
+  const context = options.context ?? resolveContext(root, options);
+  const home = options.home ?? process.env.COPILOT_HOME ?? path.join(os.homedir(), '.copilot');
+  const ledger = readJson(candidateLedgerFile(
+    home, context.identity.repositoryHash, candidateId,
+  ));
   const { ledgerHash, ...unsigned } = ledger;
   assert(ledgerHash === sha256(unsigned), 'Candidate ledger integrity failed');
   assert(ledger.candidate?.id === candidateId, 'Candidate ledger ID mismatch');
+  assert(ledger.repositoryHash === context.identity.repositoryHash,
+    'Candidate ledger repository mismatch');
   return ledger;
 }
 
-function resolvedCoordinator(root, adapter, opportunityId) {
-  if (!adapter.opportunityPolicy || !opportunityId) return null;
-  const policy = readJson(contained(root, adapter.opportunityPolicy));
+function resolvedCoordinator(opportunityPolicy, opportunityId) {
+  if (!opportunityPolicy || !opportunityId) return null;
+  const policy = opportunityPolicy;
   const opportunity = policy.opportunities?.find(item => item.id === opportunityId);
   return opportunity?.team?.coordinator ?? null;
 }
 
 export function decideAgentStop(root, payload, options = {}) {
   const started = Date.now();
-  const adapter = options.adapter ?? readAdapter(root);
-  if (!adapter.learningPolicy) return { action: 'allow', reason: 'no-learning-policy' };
-  const policy = options.policy ?? readLearningPolicy(root, adapter);
+  const context = options.context ?? resolveContext(root, options);
+  const adapter = options.adapter ?? context.adapter;
+  const policy = options.policy ?? context.policy;
   if (!policy.enabled) return { action: 'allow', reason: 'learning-disabled' };
   if (policy.continuation.enabled !== true || policy.automaticBuild !== true) {
     return { action: 'allow', reason: 'automatic-build-disabled' };
@@ -892,6 +1289,7 @@ export function decideAgentStop(root, payload, options = {}) {
     root,
     adapter,
     policy,
+    context,
   });
   if (event.improvementTask) {
     appendSanitizedEvent(home, event);
@@ -910,13 +1308,13 @@ export function decideAgentStop(root, payload, options = {}) {
   if (result.decision !== 'candidate') {
     return { action: 'allow', reason: result.reason, result };
   }
-  if (fs.statSync(candidateLedgerFile(root, result.candidate.id),
+  if (fs.statSync(candidateLedgerFile(home, event.repositoryHash, result.candidate.id),
     { throwIfNoEntry: false })?.isFile()) {
     return { action: 'allow', reason: 'candidate-already-recorded', result };
   }
   const marker = markerFile(home, event.repositoryHash, event.workflowId);
   if (fs.existsSync(marker)) return { action: 'allow', reason: 'already-prompted', result };
-  const coordinator = resolvedCoordinator(root, adapter,
+  const coordinator = resolvedCoordinator(context.opportunityPolicy,
     result.candidate.opportunityId);
   const prepareCommand = `node "$HOME/.copilot/skills/budget-workflow/scripts/` +
     `continuous-improvement.mjs" prepare-candidate ${JSON.stringify(root)} ` +
@@ -961,7 +1359,7 @@ export function decideAgentStop(root, payload, options = {}) {
       action: 'continuation-requested',
       evidenceHash: sha256(markerValue),
     }],
-  });
+  }, { context, home });
   return {
     action: 'block',
     reason: 'eligible-learning-candidate',
@@ -1013,9 +1411,10 @@ export function verifyWorkflowCompletionObservation(receipt, context) {
 
 export function persistWorkflowCompletion(root, receipt, options = {}) {
   const verified = verifyWorkflowCompletionObservation(receipt, receipt);
-  assert(verified.repositoryHash === sha256(fs.realpathSync(root)),
+  const context = options.context ?? resolveContext(root, options);
+  assert(verified.repositoryHash === context.identity.repositoryHash,
     'Learning completion repository mismatch');
-  const adapter = options.adapter ?? readAdapter(root);
+  const adapter = options.adapter ?? context.adapter;
   assert(adapter.project === receipt.project, 'Learning completion project mismatch');
   const home = options.home ?? process.env.COPILOT_HOME ?? path.join(os.homedir(), '.copilot');
   const event = sanitizeHookEvent('workflow-complete', {
@@ -1031,22 +1430,46 @@ export function persistWorkflowCompletion(root, receipt, options = {}) {
     workflowId: receipt.workflowId,
     opportunityId: receipt.opportunityId,
     receiptHash: receipt.receiptHash,
+    context,
   });
   appendSanitizedEvent(home, event);
   return event;
 }
 
-function prepareCandidate(root, candidateId) {
-  const adapter = readAdapter(root);
-  const policy = readLearningPolicy(root, adapter);
-  const ledger = readCandidateLedger(root, candidateId);
+function currentWorktreeBinding(root) {
+  return {
+    worktreeHash: sha256(`worktree:${fs.realpathSync(root)}`),
+    revision: gitOutput(root, ['rev-parse', 'HEAD']),
+    treeHash: gitOutput(root, ['rev-parse', 'HEAD^{tree}']),
+  };
+}
+
+function candidateWorktreeAllowed(root, ledger) {
+  const current = currentWorktreeBinding(root);
+  return ledger.incubationBinding?.worktreeHash === current.worktreeHash ||
+    ledger.validatedWorktrees?.some(item =>
+      item.worktreeHash === current.worktreeHash &&
+      item.treeHash === current.treeHash);
+}
+
+function prepareCandidate(root, candidateId, options = {}) {
+  const context = options.context ?? resolveContext(root, options);
+  const policy = context.policy;
+  const home = options.home ?? process.env.COPILOT_HOME ?? path.join(os.homedir(), '.copilot');
+  const ledger = readCandidateLedger(root, candidateId, { context, home });
   assert(ledger.candidate.requiresPrioritySelection !== true &&
     typeof ledger.candidate.selectedPriority === 'string',
   'Candidate priority must be explicitly selected before preparation');
+  const binding = currentWorktreeBinding(root);
+  if (ledger.incubationBinding) {
+    assert(candidateWorktreeAllowed(root, ledger),
+      'Candidate incubation is bound to another worktree/revision');
+  }
   const plan = createReplayPlan(ledger.candidate, []);
   const incubation = incubateCandidate(root, ledger.candidate, plan, policy);
   const updated = persistCandidateLedger(root, incubation.candidate, {
     status: 'incubating',
+    incubationBinding: ledger.incubationBinding ?? binding,
     evidence: {
       ...ledger.evidence,
       incubation: incubation.evidenceHash,
@@ -1055,13 +1478,15 @@ function prepareCandidate(root, candidateId) {
       action: 'incubation-prepared',
       evidenceHash: incubation.evidenceHash,
     }],
-  });
+  }, { context, home });
   return { directory: incubation.directory, ledger: updated };
 }
 
-function selectCandidatePriority(root, candidateId, priorityId) {
+function selectCandidatePriority(root, candidateId, priorityId, options = {}) {
   assert(ID_PATTERN.test(priorityId), 'Candidate priority ID invalid');
-  const ledger = readCandidateLedger(root, candidateId);
+  const context = options.context ?? resolveContext(root, options);
+  const home = options.home ?? process.env.COPILOT_HOME ?? path.join(os.homedir(), '.copilot');
+  const ledger = readCandidateLedger(root, candidateId, { context, home });
   assert(ledger.status === 'eligible', 'Candidate priority selection requires eligible state');
   assert(ledger.candidate.requiresPrioritySelection === true,
     'Candidate does not require priority selection');
@@ -1084,10 +1509,11 @@ function selectCandidatePriority(root, candidateId, priorityId) {
       priorityId,
       evidenceHash: sha256(option),
     }],
-  });
+  }, { context, home });
 }
 
-function recordCandidateEvidence(root, candidateId, evidenceType, receiptFile) {
+function recordCandidateEvidence(root, candidateId, evidenceType, receiptFile,
+  options = {}) {
   const contracts = {
     artifact: ['candidate-artifact', 'evidenceHash'],
     integration: ['candidate-integration', 'evidenceHash'],
@@ -1099,7 +1525,9 @@ function recordCandidateEvidence(root, candidateId, evidenceType, receiptFile) {
     accounting: ['candidate-accounting', 'accountingHash'],
   };
   assert(contracts[evidenceType], 'Unknown candidate evidence type');
-  const ledger = readCandidateLedger(root, candidateId);
+  const context = options.context ?? resolveContext(root, options);
+  const home = options.home ?? process.env.COPILOT_HOME ?? path.join(os.homedir(), '.copilot');
+  const ledger = readCandidateLedger(root, candidateId, { context, home });
   const receipt = readJson(receiptFile);
   const [expectedKind, hashKey] = contracts[evidenceType];
   assert(receipt.kind === expectedKind && receipt.candidateId === candidateId,
@@ -1107,11 +1535,334 @@ function recordCandidateEvidence(root, candidateId, evidenceType, receiptFile) {
   const { [hashKey]: receiptHash, ...unsigned } = receipt;
   assert(HASH_PATTERN.test(receiptHash ?? '') && receiptHash === sha256(unsigned),
     'Candidate evidence receipt hash mismatch');
+  const current = currentWorktreeBinding(root);
+  let validatedWorktrees = ledger.validatedWorktrees ?? [];
+  if (ledger.incubationBinding && !candidateWorktreeAllowed(root, ledger)) {
+    assert(evidenceType === 'scope-tree' &&
+      receipt.treeHash === ledger.incubationBinding.treeHash,
+    'Candidate evidence is bound to another worktree/tree');
+    validatedWorktrees = [...validatedWorktrees, {
+      worktreeHash: current.worktreeHash,
+      revision: current.revision,
+      treeHash: current.treeHash,
+      scopeHash: receipt.scopeHash,
+      evidenceHash: receiptHash,
+    }];
+  }
   const updated = persistCandidateLedger(root, ledger.candidate, {
     evidence: { ...ledger.evidence, [evidenceType]: receiptHash },
+    validatedWorktrees,
     history: [{ action: `evidence:${evidenceType}`, evidenceHash: receiptHash }],
-  });
+  }, { context, home });
   return updated;
+}
+
+function backfillIndexFile(home, repositoryHash) {
+  return path.join(stateRoot(home), repositoryHash, 'backfill', 'sources.json');
+}
+
+function readBackfillIndex(home, repositoryHash) {
+  const file = backfillIndexFile(home, repositoryHash);
+  if (!fs.statSync(file, { throwIfNoEntry: false })?.isFile()) {
+    return { hashes: new Set(), ids: new Set() };
+  }
+  const value = readJson(file);
+  const { indexHash, ...unsigned } = value;
+  assert(indexHash === sha256(unsigned) &&
+    value.repositoryHash === repositoryHash &&
+    Array.isArray(value.sourceEventHashes) &&
+    value.sourceEventHashes.every(hash => HASH_PATTERN.test(hash)) &&
+    Array.isArray(value.sourceEventIdHashes) &&
+    value.sourceEventIdHashes.every(hash => HASH_PATTERN.test(hash)),
+  'Backfill source index integrity failed');
+  return {
+    hashes: new Set(value.sourceEventHashes),
+    ids: new Set(value.sourceEventIdHashes),
+  };
+}
+
+function writeBackfillIndex(home, repositoryHash, hashes, ids) {
+  const unsigned = {
+    version: 1,
+    repositoryHash,
+    sourceEventHashes: [...hashes].sort(),
+    sourceEventIdHashes: [...ids].sort(),
+  };
+  writePrivateJson(backfillIndexFile(home, repositoryHash), {
+    ...unsigned,
+    indexHash: sha256(unsigned),
+  });
+}
+
+function eventData(event) {
+  return event?.data && typeof event.data === 'object' && !Array.isArray(event.data)
+    ? event.data
+    : {};
+}
+
+function eventTimestamp(event) {
+  const data = eventData(event);
+  return event.timestamp ?? data.timestamp ?? Date.now();
+}
+
+function eventTurnId(event) {
+  const data = eventData(event);
+  return String(data.turnId ?? event.turnId ?? '');
+}
+
+function eventToolCallId(event) {
+  const data = eventData(event);
+  return String(data.toolCallId ?? data.callId ?? event.toolCallId ?? event.id ?? '');
+}
+
+function privateText(...values) {
+  return values.find(value => typeof value === 'string') ?? '';
+}
+
+function verifyBackfillRepository(root, events, context) {
+  const roots = new Set();
+  for (const event of events) {
+    const data = eventData(event);
+    for (const candidate of [
+      data.cwd,
+      data.repository,
+      data.gitRoot,
+      data.repositoryRoot,
+      data.context?.cwd,
+      data.context?.gitRoot,
+      event.cwd,
+    ]) {
+      if (typeof candidate !== 'string' || !path.isAbsolute(candidate)) continue;
+      const discovered = findRoot(candidate);
+      if (discovered) roots.add(discovered);
+    }
+  }
+  assert(roots.size > 0, 'Backfill session has no verifiable Git root');
+  for (const discovered of roots) {
+    const candidate = readEffectiveProjectPolicy(discovered);
+    const identity = logicalRepositoryIdentity(discovered, candidate.adapter.project);
+    assert(identity.repositoryHash === context.identity.repositoryHash,
+      'Backfill session belongs to a different logical repository');
+  }
+  assert([...roots].some(discovered => {
+    const candidate = readEffectiveProjectPolicy(discovered);
+    return logicalRepositoryIdentity(discovered, candidate.adapter.project)
+      .repositoryHash === context.identity.repositoryHash;
+  }), 'Backfill session does not belong to requested repository');
+}
+
+function terminalOutcome(data, fallback = 'accepted') {
+  if (data.success === false || data.failed === true || data.error === true) return 'failed';
+  const value = String(data.outcome ?? data.status ?? data.reason ?? '').toLowerCase();
+  if (/fail|error|timeout|crash/.test(value)) return 'failed';
+  if (/cancel|reject|abort|interrupt/.test(value)) return 'rejected';
+  return fallback;
+}
+
+export function backfillEvents(root, eventsFile, options = {}) {
+  const context = options.context ?? resolveContext(root, options);
+  const home = options.home ?? process.env.COPILOT_HOME ?? path.join(os.homedir(), '.copilot');
+  const suppliedOpportunityId = options.opportunity ?? options.opportunityId ?? null;
+  if (suppliedOpportunityId !== null) {
+    assert(ID_PATTERN.test(suppliedOpportunityId),
+      'Backfill opportunity ID must be safe kebab-case');
+    const opportunity = context.opportunityPolicy?.opportunities
+      ?.find(item => item.id === suppliedOpportunityId);
+    assert(opportunity, 'Backfill opportunity ID is unknown');
+    assert(opportunity.enabled !== false, 'Backfill opportunity ID is disabled');
+  }
+  const lines = fs.readFileSync(eventsFile, 'utf8').split('\n').filter(Boolean);
+  const parsed = lines.map((line, index) => {
+    const event = JSON.parse(line);
+    assert(event && typeof event === 'object' && !Array.isArray(event),
+      `Backfill event ${index + 1} must be an object`);
+    const sourceEventId = event.id ?? eventData(event).eventId ?? null;
+    return {
+      event,
+      sourceEventHash: sha256(line),
+      sourceEventIdHash: sourceEventId === null
+        ? null
+        : sha256(String(sourceEventId)),
+    };
+  });
+  verifyBackfillRepository(root, parsed.map(item => item.event), context);
+  const recordedEvents = readRepositoryEvents(
+    home,
+    context.identity.repositoryHash,
+    context.policy.thresholds.maximumAnalysisEvents,
+  );
+  const alreadyRecorded = new Set(recordedEvents
+    .map(event => event.sourceEventHash).filter(Boolean));
+  const alreadyRecordedIds = new Set(recordedEvents
+    .map(event => event.sourceEventIdHash).filter(Boolean));
+  const indexed = readBackfillIndex(home, context.identity.repositoryHash);
+  const known = new Set([...alreadyRecorded, ...indexed.hashes]);
+  const knownIds = new Set([...alreadyRecordedIds, ...indexed.ids]);
+  const starts = new Map();
+  const turns = new Map();
+  let currentWorkflow = null;
+  const counts = {
+    processed: parsed.length,
+    imported: 0,
+    deduplicated: 0,
+    ignored: 0,
+    classifications: {
+      prompts: 0,
+      tools: 0,
+      toolFailures: 0,
+      skills: 0,
+      terminals: 0,
+      metadata: 0,
+    },
+  };
+  const sessionSeed = sha256(`backfill-session:${parsed
+    .map(item => item.sourceEventHash).join(':')}`);
+
+  const append = (kind, source, payload, extra = {}) => {
+    appendSanitizedEvent(home, sanitizeHookEvent(kind, payload, {
+      root: context.root,
+      context,
+      home,
+      workflowState: extra.workflowState ?? currentWorkflow,
+      sourceEventIdHash: source.sourceEventIdHash,
+      sourceEventHash: source.sourceEventHash,
+      skillIdentityHash: extra.skillIdentityHash ?? null,
+    }));
+    counts.imported += 1;
+  };
+
+  for (const source of parsed) {
+    if (known.has(source.sourceEventHash) ||
+      source.sourceEventIdHash !== null && knownIds.has(source.sourceEventIdHash)) {
+      counts.deduplicated += 1;
+      continue;
+    }
+    const { event } = source;
+    const data = eventData(event);
+    const type = String(event.type ?? event.event ?? '');
+    const turnId = eventTurnId(event);
+    const rawSessionId = privateText(
+      data.sessionId,
+      event.sessionId,
+      sessionSeed,
+    );
+    const base = {
+      cwd: context.root,
+      sessionId: rawSessionId,
+      timestamp: eventTimestamp(event),
+    };
+    if (type === 'user.message') {
+      const prompt = privateText(
+        data.content,
+        data.prompt,
+        data.message,
+        data.text,
+      );
+      const exactOpportunityId = opportunityHint(prompt, context.opportunityPolicy);
+      const classifiedOpportunityId = exactOpportunityId === null
+        ? suppliedOpportunityId
+        : null;
+      currentWorkflow = beginPromptWorkflow(context.root, {
+        ...base,
+        prompt,
+        opportunityId: classifiedOpportunityId ?? undefined,
+      }, {
+        context,
+        home,
+        opportunityClassificationSupplied: classifiedOpportunityId !== null,
+      });
+      if (turnId) turns.set(turnId, currentWorkflow);
+      append('user-prompt-submitted', source, { ...base, prompt }, {
+        workflowState: currentWorkflow,
+      });
+      counts.classifications.prompts += 1;
+    } else if (type === 'tool.execution_start') {
+      const key = `${turnId}:${eventToolCallId(event)}`;
+      starts.set(key, {
+        toolName: data.toolName ?? data.name ?? event.toolName,
+        toolArgs: data.arguments ?? data.args ?? data.input ?? {},
+        workflowState: turns.get(turnId) ?? currentWorkflow,
+      });
+      counts.classifications.metadata += 1;
+    } else if (type === 'tool.execution_complete') {
+      const callId = eventToolCallId(event);
+      let key = `${turnId}:${callId}`;
+      let start = starts.get(key);
+      if (!start && callId) {
+        const matches = [...starts.entries()].filter(([candidate]) =>
+          candidate.endsWith(`:${callId}`));
+        if (matches.length === 1) {
+          [key, start] = matches[0];
+        }
+      }
+      if (!start && turnId) {
+        const matches = [...starts.entries()].filter(([candidate]) =>
+          candidate.startsWith(`${turnId}:`));
+        if (matches.length === 1) {
+          [key, start] = matches[0];
+        }
+      }
+      if (start) {
+        const success = data.success !== false && data.status !== 'failed' &&
+          data.error === undefined;
+        append(success ? 'post-tool-use' : 'post-tool-use-failure', source, {
+          ...base,
+          toolName: start.toolName,
+          toolArgs: start.toolArgs,
+          result: data.result ?? data.output,
+          error: data.error,
+        }, { workflowState: start.workflowState });
+        starts.delete(key);
+        counts.classifications[success ? 'tools' : 'toolFailures'] += 1;
+      } else {
+        counts.ignored += 1;
+      }
+    } else if (type === 'skill.invoked') {
+      const identity = privateText(data.skillName, data.name, data.skill, data.content);
+      append('post-tool-use', source, {
+        ...base,
+        toolName: 'skill-invoked',
+        toolArgs: { identityHash: sha256(identity) },
+      }, {
+        workflowState: turns.get(turnId) ?? currentWorkflow,
+        skillIdentityHash: sha256(identity),
+      });
+      counts.classifications.skills += 1;
+    } else if (type === 'assistant.turn_end') {
+      append('agent-stop', source, {
+        ...base,
+        outcomeClass: terminalOutcome(data),
+      }, { workflowState: turns.get(turnId) ?? currentWorkflow });
+      counts.classifications.terminals += 1;
+    } else if (type === 'session.task_complete') {
+      append('session-end', source, {
+        ...base,
+        outcomeClass: terminalOutcome(data),
+        reason: terminalOutcome(data) === 'accepted' ? 'completed' : 'failed',
+      });
+      counts.classifications.terminals += 1;
+    } else if (/shutdown|session\.end/.test(type)) {
+      const outcome = terminalOutcome(data);
+      append('session-end', source, {
+        ...base,
+        outcomeClass: outcome,
+        reason: outcome === 'accepted' ? 'completed' : outcome,
+      });
+      counts.classifications.terminals += 1;
+    } else {
+      counts.ignored += 1;
+      counts.classifications.metadata += 1;
+    }
+    known.add(source.sourceEventHash);
+    if (source.sourceEventIdHash) knownIds.add(source.sourceEventIdHash);
+  }
+  for (const source of parsed) {
+    indexed.hashes.add(source.sourceEventHash);
+    if (source.sourceEventIdHash) indexed.ids.add(source.sourceEventIdHash);
+  }
+  writeBackfillIndex(home, context.identity.repositoryHash,
+    indexed.hashes, indexed.ids);
+  return counts;
 }
 
 function parseStdin() {
@@ -1131,10 +1882,11 @@ function hookEventName(command) {
 }
 
 function main() {
-  const [event, first, second, third] = process.argv.slice(2);
+  const args = process.argv.slice(2);
+  const [event, first, second, third] = args;
   if (event === 'validate') {
-    const root = fs.realpathSync(first ?? process.cwd());
-    const policy = readLearningPolicy(root, readAdapter(root));
+    const context = resolveContext(first ?? process.cwd());
+    const policy = context.policy;
     process.stdout.write(`${JSON.stringify({
       valid: true,
       project: policy.project,
@@ -1142,6 +1894,8 @@ function main() {
       automaticBuild: policy.automaticBuild,
       automaticPromotion: policy.automaticPromotion,
       continuation: policy.continuation.enabled,
+      policySource: context.source,
+      repositoryHash: context.identity.repositoryHash,
     }, null, 2)}\n`);
     return;
   }
@@ -1149,23 +1903,27 @@ function main() {
     assert(first && second && third,
       'Usage: continuous-improvement.mjs select-priority ROOT ID PRIORITY_ID');
     process.stdout.write(`${JSON.stringify(selectCandidatePriority(
-      fs.realpathSync(first), second, third,
+      findRoot(first), second, third,
     ), null, 2)}\n`);
     return;
   }
   if (event === 'status') {
-    const root = fs.realpathSync(first ?? process.cwd());
-    const policy = readLearningPolicy(root, readAdapter(root));
-    const repositoryHash = sha256(root);
+    const context = resolveContext(first ?? process.cwd());
+    const root = context.root;
+    const policy = context.policy;
+    const repositoryHash = context.identity.repositoryHash;
     const home = process.env.COPILOT_HOME ?? path.join(os.homedir(), '.copilot');
     const eventLedger = readRepositoryEventLedger(home, repositoryHash,
       policy.thresholds.maximumAnalysisEvents);
-    const candidatesRoot = path.join(gitLearningRoot(root), 'candidates');
+    const candidatesRoot = path.join(stateRoot(home), repositoryHash, 'candidates');
     const candidates = fs.statSync(candidatesRoot, { throwIfNoEntry: false })?.isDirectory()
-      ? fs.readdirSync(candidatesRoot).sort().map(id => readCandidateLedger(root, id))
+      ? fs.readdirSync(candidatesRoot).sort()
+        .map(id => readCandidateLedger(root, id, { context, home }))
       : [];
     process.stdout.write(`${JSON.stringify({
       project: policy.project,
+      repositoryHash,
+      policySource: context.source,
       eventCount: eventLedger.events.length,
       eventLedger: { valid: eventLedger.valid, reason: eventLedger.reason },
       mining: eventLedger.valid ? mineCandidates(eventLedger.events, policy) : null,
@@ -1176,7 +1934,7 @@ function main() {
   if (event === 'prepare-candidate') {
     assert(first && second, 'Usage: continuous-improvement.mjs prepare-candidate ROOT ID');
     process.stdout.write(`${JSON.stringify(prepareCandidate(
-      fs.realpathSync(first), second,
+      findRoot(first), second,
     ), null, 2)}\n`);
     return;
   }
@@ -1186,7 +1944,7 @@ function main() {
     const planFile = process.argv[6];
     assert(planFile, 'Workflow binding plan file required');
     process.stdout.write(`${JSON.stringify(bindPromptWorkflow(
-      fs.realpathSync(first), second, third, readJson(planFile),
+      findRoot(first), second, third, readJson(planFile),
     ), null, 2)}\n`);
     return;
   }
@@ -1196,7 +1954,7 @@ function main() {
     const receiptFile = process.argv[6];
     assert(receiptFile, 'Evidence receipt file required');
     process.stdout.write(`${JSON.stringify(recordCandidateEvidence(
-      fs.realpathSync(first), second, third, receiptFile,
+      findRoot(first), second, third, receiptFile,
     ), null, 2)}\n`);
     return;
   }
@@ -1204,7 +1962,19 @@ function main() {
     assert(first && second,
       'Usage: continuous-improvement.mjs record-completion ROOT RECEIPT.json');
     process.stdout.write(`${JSON.stringify(persistWorkflowCompletion(
-      fs.realpathSync(first), readJson(second),
+      findRoot(first), readJson(second),
+    ), null, 2)}\n`);
+    return;
+  }
+  if (event === 'backfill-events') {
+    assert(first && second && (args.length === 3 ||
+      args.length === 5 && third === '--opportunity' && ID_PATTERN.test(args[4])),
+    'Usage: continuous-improvement.mjs backfill-events ROOT EVENTS.jsonl ' +
+      '[--opportunity OPPORTUNITY_ID]');
+    process.stdout.write(`${JSON.stringify(backfillEvents(
+      findRoot(first), path.resolve(second), {
+        opportunity: args[4] ?? null,
+      },
     ), null, 2)}\n`);
     return;
   }
@@ -1215,29 +1985,26 @@ function main() {
     process.stdout.write('{}');
     return;
   }
-  const adapter = readAdapter(root);
-  if (!adapter.learningPolicy) {
-    process.stdout.write('{}');
-    return;
-  }
-  const policy = readLearningPolicy(root, adapter);
+  const context = resolveContext(root);
+  const adapter = context.adapter;
+  const policy = context.policy;
   const home = process.env.COPILOT_HOME ?? path.join(os.homedir(), '.copilot');
   if (event === 'user-prompt-submitted') {
-    const workflowState = beginPromptWorkflow(root, payload, { home, adapter });
+    const workflowState = beginPromptWorkflow(root, payload, { home, context });
     appendSanitizedEvent(home, sanitizeHookEvent(event, payload, {
-      root, adapter, policy, home, workflowState,
+      root, adapter, policy, home, workflowState, context,
     }));
     process.stdout.write('{}');
     return;
   }
   if (event === 'agent-stop') {
-    const decision = decideAgentStop(root, payload, { home, adapter, policy });
+    const decision = decideAgentStop(root, payload, { home, context });
     process.stdout.write(decision.action === 'block'
       ? JSON.stringify({ decision: 'block', reason: decision.task })
       : '{}');
     return;
   }
-  const record = sanitizeHookEvent(event, payload, { root, adapter, policy, home });
+  const record = sanitizeHookEvent(event, payload, { root, context, home });
   appendSanitizedEvent(home, record);
   if (event === 'session-end') {
     pruneExpiredEvents(home, record.repositoryHash, policy.retentionDays);
