@@ -524,7 +524,15 @@ export function runRegisteredTool(root, tool, options = {}) {
     if (process.env[name] !== undefined) env[name] = process.env[name];
   }
   for (const name of tool.environment ?? []) {
+    if (name.startsWith('RELEASE_AUTHORIZED_') ||
+        name === 'RELEASE_AUTHORIZATION_HASH') continue;
     if (process.env[name] !== undefined) env[name] = process.env[name];
+  }
+  for (const [name, value] of Object.entries(options.trustedEnvironment ?? {})) {
+    if (!(tool.environment ?? []).includes(name)) continue;
+    assert(typeof value === 'string' && value.length > 0,
+      `Trusted environment value is invalid: ${name}`);
+    env[name] = value;
   }
   const startedAt = new Date().toISOString();
   const result = spawnSync(tool.argv[0], tool.argv.slice(1), {

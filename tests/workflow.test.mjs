@@ -163,6 +163,15 @@ test('registered command execution uses explicit side-effect admission', () => {
   });
   assert.equal(result.status, 'accepted');
   assert.equal(result.stdout, 'ok');
+  const legacy = runRegisteredTool(root, registry.tools[0], {
+    execute: true,
+    allowedSideEffects: ['none'],
+    trustedEnvironment: {
+      RELEASE_AUTHORIZED_SCOPE_HASH: 'a'.repeat(64),
+    },
+  });
+  assert.equal(legacy.status, 'accepted');
+  assert.equal(legacy.stdout, 'ok');
   assert.throws(() => runRegisteredTool(root, registry.tools[1], {
     execute: true,
     allowedSideEffects: ['none'],
@@ -176,6 +185,56 @@ test('registered command execution uses explicit side-effect admission', () => {
     allowedSideEffects: ['production'],
   }), /disabled/);
   fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('release authorization environment only comes from trusted runner input', () => {
+  const root = makeScratch('workflow-trusted-env-');
+  const tool = {
+    id: 'release-context',
+    kind: 'command',
+    argv: [
+      process.execPath,
+      '-e',
+      'process.stdout.write(process.env.RELEASE_AUTHORIZED_SCOPE_HASH ?? "missing")',
+    ],
+    cwd: '.',
+    timeoutSeconds: 10,
+    sideEffect: 'none',
+    environment: ['RELEASE_AUTHORIZED_SCOPE_HASH'],
+  };
+  const homeTool = {
+    ...tool,
+    id: 'release-home',
+    argv: [
+      process.execPath,
+      '-e',
+      'process.stdout.write(process.env.HOME ?? "missing")',
+    ],
+    environment: ['HOME'],
+  };
+  const previous = process.env.RELEASE_AUTHORIZED_SCOPE_HASH;
+  process.env.RELEASE_AUTHORIZED_SCOPE_HASH = 'ambient-forgery';
+  try {
+    assert.equal(runRegisteredTool(root, tool, {
+      execute: true,
+      allowedSideEffects: ['none'],
+    }).stdout, 'missing');
+    assert.equal(runRegisteredTool(root, tool, {
+      execute: true,
+      allowedSideEffects: ['none'],
+      trustedEnvironment: {
+        RELEASE_AUTHORIZED_SCOPE_HASH: 'a'.repeat(64),
+      },
+    }).stdout, 'a'.repeat(64));
+    assert.equal(runRegisteredTool(root, homeTool, {
+      execute: true,
+      allowedSideEffects: ['none'],
+    }).stdout, process.env.HOME);
+  } finally {
+    if (previous === undefined) delete process.env.RELEASE_AUTHORIZED_SCOPE_HASH;
+    else process.env.RELEASE_AUTHORIZED_SCOPE_HASH = previous;
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('receipt chains reject forged, duplicated and out-of-order evidence', () => {

@@ -870,6 +870,19 @@ export function executeReleaseStep(machine, root, state, stepId, options = {}) {
   if (machine.version === 3) {
     assertReleaseExecutionWindow(machine, step, state.operatorAuthorization);
   }
+  const trustedEnvironment = machine.version === 3
+    ? {
+        RELEASE_AUTHORIZED_REPOSITORY:
+          state.operatorAuthorization.repository,
+        RELEASE_AUTHORIZED_WORKFLOW_ID:
+          state.operatorAuthorization.workflowId,
+        RELEASE_AUTHORIZED_BASE_REVISION: state.currentRevision,
+        RELEASE_AUTHORIZED_SCOPE_HASH: state.scopeHash,
+        RELEASE_AUTHORIZED_VARIANT: machine.variant ?? 'none',
+        RELEASE_AUTHORIZED_PLAN_HASH: plan.planHash,
+        RELEASE_AUTHORIZATION_HASH: authorization.hash,
+      }
+    : undefined;
   const execution = runRegisteredTool(root, toolById(machine.toolRegistry, step.tool), {
     execute: options.execute,
     allowedSideEffects: options.allowedSideEffects,
@@ -882,6 +895,7 @@ export function executeReleaseStep(machine, root, state, stepId, options = {}) {
     fakeAdapter: options.fakeAdapter,
     fakeState: options.fakeState,
     fakeScenario: options.fakeScenarios?.[step.id],
+    trustedEnvironment,
     expectedOwner: machine.supervisor,
     currentRevision: state.currentRevision,
     scopeHash: state.scopeHash,
@@ -906,6 +920,7 @@ export function executeReleaseStep(machine, root, state, stepId, options = {}) {
         fakeAdapter: options.fakeAdapter,
         fakeState: options.fakeState,
         fakeScenario: options.fakeScenarios?.[`${step.id}:verify`],
+        trustedEnvironment,
         expectedOwner: machine.supervisor,
         currentRevision: state.currentRevision,
         scopeHash: state.scopeHash,

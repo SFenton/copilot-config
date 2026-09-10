@@ -521,6 +521,73 @@ test('enabled version 3 fake machines execute without command timeouts', t => {
     afterStateHash: 'b'.repeat(64),
   });
   assert.equal(result.execution.status, 'accepted');
+
+  const authorizationEnvironment = [
+    'RELEASE_AUTHORIZED_REPOSITORY',
+    'RELEASE_AUTHORIZED_WORKFLOW_ID',
+    'RELEASE_AUTHORIZED_BASE_REVISION',
+    'RELEASE_AUTHORIZED_SCOPE_HASH',
+    'RELEASE_AUTHORIZED_VARIANT',
+    'RELEASE_AUTHORIZED_PLAN_HASH',
+    'RELEASE_AUTHORIZATION_HASH',
+  ];
+  const commandMachineInput = structuredClone(machine);
+  delete commandMachineInput.fakeOnly;
+  commandMachineInput.toolRegistry.tools =
+    commandMachineInput.toolRegistry.tools.map(tool => ({
+      id: tool.id,
+      kind: 'command',
+      argv: [
+        process.execPath,
+        '-e',
+        'process.stdout.write(JSON.stringify(Object.fromEntries(Object.entries(process.env).filter(([key]) => key.startsWith("RELEASE_AUTH")))))',
+      ],
+      cwd: '.',
+      timeoutSeconds: 30,
+      sideEffect: 'none',
+      environment: authorizationEnvironment,
+    }));
+  const commandMachine = validateReleaseMachineV3(
+    commandMachineInput,
+    'sample',
+  );
+  const commandPlan = releasePlan(commandMachine);
+  const commandAuthorization = {
+    ...operatorAuthorization,
+    toolIds: commandMachine.toolRegistry.tools.map(tool => tool.id),
+    planHash: commandPlan.planHash,
+    toolContractHash: sha256(commandPlan.toolContracts),
+  };
+  const commandResult = executeReleaseStep(commandMachine, root, {
+    currentRevision: revision,
+    scopeHash: commandAuthorization.scopeHash,
+    operatorAuthorization: commandAuthorization,
+    receipts: [],
+  }, 'preflight', {
+    execute: true,
+    allowedSideEffects: ['none'],
+    beforeStateHash: 'b'.repeat(64),
+    afterStateHash: 'b'.repeat(64),
+  });
+  const trusted = JSON.parse(commandResult.execution.stdout);
+  assert.equal(trusted.RELEASE_AUTHORIZED_REPOSITORY, root);
+  assert.equal(trusted.RELEASE_AUTHORIZED_BASE_REVISION, revision);
+  assert.equal(
+    trusted.RELEASE_AUTHORIZED_SCOPE_HASH,
+    commandAuthorization.scopeHash,
+  );
+  assert.equal(
+    trusted.RELEASE_AUTHORIZED_PLAN_HASH,
+    commandPlan.planHash,
+  );
+  assert.equal(
+    trusted.RELEASE_AUTHORIZED_VARIANT,
+    'none',
+  );
+  assert.equal(
+    trusted.RELEASE_AUTHORIZED_WORKFLOW_ID,
+    commandAuthorization.workflowId,
+  );
 });
 
 test('version 2 rejects prefabricated rollback receipts and cleans rejected paths', t => {
