@@ -57,6 +57,12 @@ It applies across ordinary checkouts as well as budget worktrees. Without a
 project adapter, the assistant uses native project rules/direct tools; the full
 phase-aware project integration still requires that project's adapter changes.
 Small questions and known commands do not require workflow ceremony.
+For substantive project tasks, the installed opportunity planner still runs
+when the current branch predates the routing-policy files. It may read the one
+valid policy bundle from an already-fetched local default-branch ref without
+fetching or modifying the worktree. Its result is advisory routing evidence
+only and grants no repository-apply, live, release, destructive, production, or
+other side-effect authority.
 
 This is default instruction-based behavior, not an installed `/plugin` package,
 an automatic interactive model switch or a hard billing/security interceptor.
@@ -92,12 +98,31 @@ values, and it never modifies a successful tool result. General-purpose agent
 work is covered by actual parent tool events, receipt lineage and transcript
 file metadata hashes; `subagentStop` is optional enrichment.
 
-Projects opt in with `.github/agent-learning.json`. The observer silently
+Projects opt in with `.github/agent-learning.json`. Existing branches and
+worktrees that predate that file use one valid policy bundle from a local
+default-branch ref; the hook never fetches or mutates the worktree. Learning
+state is keyed by a hashed project and canonical repository identity so linked
+worktrees share events and candidates without storing remote URLs or
+credentials. The observer silently
 no-ops below recurrence thresholds. At most one threshold-crossing candidate
 can request one continuation, with durable recursion and `stop_hook_active`
 guards. Real project policies keep automatic promotion disabled unless a
 repository explicitly enables the narrow replay/review/value/scope/rollback
 path for a zero/low-side-effect repository-local tool or skill.
+
+Historical event imports can classify otherwise unhinted prompts with an
+enabled opportunity:
+
+```bash
+node skills/budget-workflow/scripts/continuous-improvement.mjs \
+  backfill-events /path/to/project /path/to/events.jsonl \
+  --opportunity OPPORTUNITY_ID
+```
+
+The override is a non-authorizing workflow classification. Exact unique prompt
+triggers take precedence; unknown and disabled IDs are rejected. Persisted
+events record only that an operator/coordinator supplied the classification and
+a stable hash, never raw classification text.
 
 ## Deterministic CLI
 
@@ -112,6 +137,7 @@ node skills/budget-workflow/scripts/opportunities.mjs validate /path/to/project
 node skills/budget-workflow/scripts/opportunities.mjs plan /path/to/project task.json
 node skills/budget-workflow/scripts/continuous-improvement.mjs validate /path/to/project
 node skills/budget-workflow/scripts/continuous-improvement.mjs status /path/to/project
+node skills/budget-workflow/scripts/continuous-improvement.mjs backfill-events /path/to/project /path/to/events.jsonl
 node skills/budget-workflow/scripts/improvement-replay.mjs replay candidate.json trajectories.json
 npm test
 ```
