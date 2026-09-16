@@ -4,6 +4,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+function sameManagedText(left, right) {
+  return typeof left === 'string' &&
+    typeof right === 'string' &&
+    left.replace(/\r\n/g, '\n') === right.replace(/\r\n/g, '\n');
+}
+
 export function install(root, home, previousRoot = null) {
   const base = fs.realpathSync(root);
   const targets = [
@@ -35,7 +41,8 @@ export function install(root, home, previousRoot = null) {
           const knownPrevious = previousRoot ? path.join(path.resolve(previousRoot), source) : null;
           const previousSourceContent = knownPrevious && fs.existsSync(knownPrevious)
             ? fs.readFileSync(knownPrevious, 'utf8') : null;
-          if (currentContent === installedContent || currentContent === previousSourceContent) {
+          if (sameManagedText(currentContent, installedContent) ||
+            sameManagedText(currentContent, previousSourceContent)) {
             previousContent = currentContent;
           } else {
             throw new Error(`Refusing to replace unrecognized file/directory: ${destination}`);
@@ -64,7 +71,8 @@ export function uninstall(receipt) {
   for (const item of data.plan) {
     const info = fs.lstatSync(item.destination, { throwIfNoEntry: false });
     const unchanged = item.kind === 'file'
-      ? info?.isFile() && fs.readFileSync(item.destination, 'utf8') === item.installedContent
+      ? info?.isFile() &&
+        sameManagedText(fs.readFileSync(item.destination, 'utf8'), item.installedContent)
       : info?.isSymbolicLink() && path.resolve(path.dirname(item.destination), fs.readlinkSync(item.destination)) === item.desired;
     if (!unchanged) {
       throw new Error(`Refusing rollback of changed destination: ${item.destination}`);

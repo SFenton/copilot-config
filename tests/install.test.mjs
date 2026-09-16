@@ -143,6 +143,51 @@ test('personal instruction collisions and operator edits are never overwritten',
   assert.equal(fs.existsSync(path.join(home, 'skills/budget-workflow')), true);
 });
 
+test('installer upgrades equivalent managed files across line-ending conversion', t => {
+  const temp = makeScratch('budget-line-endings-');
+  t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+  const source = path.join(temp, 'source');
+  const home = path.join(temp, 'home');
+  for (const dir of ['skills/budget-workflow', 'skills/tandem-research', 'hooks', 'instructions']) {
+    fs.mkdirSync(path.join(source, dir), { recursive: true });
+  }
+  const instruction = '---\napplyTo: "**"\n---\nApply budget-workflow automatically.\n';
+  fs.writeFileSync(path.join(source, 'hooks/budget-reads.json'), ROUTING_HOOK_JSON);
+  fs.writeFileSync(path.join(source, 'hooks/continuous-improvement.json'),
+    CONTINUOUS_IMPROVEMENT_HOOK_JSON);
+  fs.writeFileSync(path.join(source, 'instructions/budget-workflow.instructions.md'),
+    instruction);
+  fs.mkdirSync(path.join(home, 'skills'), { recursive: true });
+  fs.mkdirSync(path.join(home, 'hooks'), { recursive: true });
+  fs.mkdirSync(path.join(home, 'instructions'), { recursive: true });
+  for (const skill of ['budget-workflow', 'tandem-research']) {
+    fs.symlinkSync(path.join(source, 'skills', skill),
+      path.join(home, 'skills', skill));
+  }
+  const crlf = value => value.replace(/\n/g, '\r\n');
+  fs.writeFileSync(path.join(home, 'hooks/budget-reads.json'),
+    crlf(ROUTING_HOOK_JSON));
+  fs.writeFileSync(path.join(home, 'hooks/continuous-improvement.json'),
+    crlf(CONTINUOUS_IMPROVEMENT_HOOK_JSON));
+  fs.writeFileSync(path.join(home, 'instructions/budget-workflow.instructions.md'),
+    crlf(instruction));
+
+  const result = install(source, home);
+  assert.equal(fs.readFileSync(path.join(home, 'hooks/budget-reads.json'), 'utf8'),
+    ROUTING_HOOK_JSON);
+  assert.equal(fs.readFileSync(
+    path.join(home, 'instructions/budget-workflow.instructions.md'),
+    'utf8',
+  ), instruction);
+  uninstall(result.receipt);
+  assert.equal(fs.readFileSync(path.join(home, 'hooks/budget-reads.json'), 'utf8'),
+    crlf(ROUTING_HOOK_JSON));
+  assert.equal(fs.readFileSync(
+    path.join(home, 'instructions/budget-workflow.instructions.md'),
+    'utf8',
+  ), crlf(instruction));
+});
+
 test('installer upgrades an unchanged regular file from a named previous checkout', t => {
   const temp = makeScratch('budget-upgrade-');
   t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
