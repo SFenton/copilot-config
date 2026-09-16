@@ -16,6 +16,10 @@ const FORBIDDEN_HOME_PATTERNS = [
   /\/home\/sfenton\b/,
   /\$HOME\/repos\/copilot-config\b/,
 ];
+const ALLOWED_GENERIC_PATH_PATTERNS = [
+  /session-state\b/,
+  /os\.tmpdir\(/,
+];
 const RUNTIME_SURFACES = [
   '.github/workflows/budget-contracts.yml',
   'README.md',
@@ -53,10 +57,11 @@ test('runtime and installed global surfaces reject application repository names 
   }
 });
 
-test('explicit integration data and fixtures may retain repository names and home-path evidence', () => {
+test('explicit integration data and fixtures may retain repository names and generic path-shape evidence', () => {
   const combined = ALLOWED_FIXTURES.map(file => text(file)).join('\n');
   assert.equal(FORBIDDEN_REPOSITORY_PATTERNS.some(pattern => pattern.test(combined)), true);
-  assert.equal(FORBIDDEN_HOME_PATTERNS.some(pattern => pattern.test(combined)), true);
+  assert.equal(FORBIDDEN_HOME_PATTERNS.some(pattern => pattern.test(combined)), false);
+  assert.equal(ALLOWED_GENERIC_PATH_PATTERNS.some(pattern => pattern.test(combined)), true);
 });
 
 test('budget contracts workflow requires manifest-backed integration on normal CI without repository coupling', () => {
