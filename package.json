@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
+    "test:skills": "node --test skills/budget-workflow/scripts/tests/*.test.mjs",
     "test:projects": "node scripts/run-project-contract-tests.mjs",
     "checkout:project-manifest": "node scripts/checkout-project-manifest.mjs",
     "scan:registered-worktree-policies": "node scripts/scan-registered-worktree-policies.mjs",

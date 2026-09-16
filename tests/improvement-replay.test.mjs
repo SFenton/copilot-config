@@ -168,6 +168,7 @@ function buildDeterministicArtifact(root, incubation, candidateValue) {
     id: candidateValue.id,
     kind: 'command',
     argv: [
+      'node',
       '.github/learned-tools/candidate-fixture-tool/tool.mjs',
     ],
     cwd: '.',

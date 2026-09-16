@@ -76,6 +76,10 @@ function fileMode(file) {
   return fs.statSync(file).mode & 0o777;
 }
 
+function assertPrivateMode(file, expected) {
+  if (process.platform !== 'win32') assert.equal(fileMode(file), expected);
+}
+
 function makeRepo(root, project = 'test-project') {
   fs.mkdirSync(path.join(root, '.github'), { recursive: true });
   fs.mkdirSync(path.join(root, 'api'), { recursive: true });
@@ -623,8 +627,10 @@ test('status and manifest-from-active-prompt expose only active hashes and creat
 
 test('automatic reader routes accept exact direct tasks and activate scoped children without inline manifests', () => {
   const home = makeTempDir('routing-home-');
-  const repo = makeTempDir('routing-repo-');
-  makeRepo(repo, 'test-project');
+  const repoTarget = makeTempDir('routing-repo-target-');
+  makeRepo(repoTarget, 'test-project');
+  const repo = `${repoTarget}-alias`;
+  fs.symlinkSync(repoTarget, repo, 'dir');
 
   const historySessionId = 'ababab12-0000-4000-8000-000000000001';
   writeSessionEvents(home, historySessionId, 'gpt-5.6-sol', 'max');
@@ -1248,7 +1254,7 @@ test('same-session helper routing trusts only the validated host envelope sessio
   const duplicateEnvelope = spawnSync(process.execPath, [ROUTING_SCRIPT, 'hook'], {
     cwd: repo,
     env: { ...process.env, COPILOT_HOME: home },
-    input: `{"sessionId":"${sessionA}","sessionId":"${sessionB}","cwd":"${repo}","toolName":"write_agent","toolArgs":{"scope":"children","message":"continue"}}`,
+    input: `{"sessionId":"${sessionA}","sessionId":"${sessionB}","cwd":${JSON.stringify(repo)},"toolName":"write_agent","toolArgs":{"scope":"children","message":"continue"}}`,
     encoding: 'utf8',
   });
   assert.equal(duplicateEnvelope.status, 0);
@@ -1466,8 +1472,10 @@ test('exact cheaper task pins with a bound manifest are allowed', () => {
 
 test('manifest-bound children with missing local events activate exact scope and fail closed otherwise', () => {
   const home = makeTempDir('routing-home-');
-  const repo = makeTempDir('routing-repo-');
-  makeRepo(repo, 'festival-score-tracker');
+  const repoTarget = makeTempDir('routing-repo-target-');
+  makeRepo(repoTarget, 'festival-score-tracker');
+  const repo = `${repoTarget}-alias`;
+  fs.symlinkSync(repoTarget, repo, 'dir');
   const parentSessionId = 'abcde123-0000-4000-8000-000000000003';
   writeSessionEvents(home, parentSessionId, 'gpt-5.6-sol', 'max');
   promptStartState({ sessionId: parentSessionId, prompt: 'delegate bounded worker' }, { home });
@@ -2266,8 +2274,8 @@ test('control artifacts stay inside the active session files directory with safe
     dispatchManifest: created.dispatchManifest,
     childActivation: created.childActivation,
   }, { home });
-  assert.equal(fileMode(path.dirname(artifact.file)), 0o700);
-  assert.equal(fileMode(artifact.file), 0o600);
+  assertPrivateMode(path.dirname(artifact.file), 0o700);
+  assertPrivateMode(artifact.file, 0o600);
   const written = JSON.parse(fs.readFileSync(artifact.file, 'utf8'));
   assert.equal(written.value.role, 'cheap-worker');
   assert.equal(JSON.stringify(written).includes('Run the exact bounded validator tests.'), false);
@@ -2279,7 +2287,7 @@ test('control artifacts stay inside the active session files directory with safe
     artifactType: 'progress-log',
     entries: ['2026-09-15T00:00:00Z progress: waiting for bounded history query'],
   }, { home });
-  assert.equal(fileMode(logArtifact.file), 0o600);
+  assertPrivateMode(logArtifact.file, 0o600);
 
   const symlinkTarget = path.join(home, 'session-state', sessionId, 'files', 'result-safe.json');
   fs.symlinkSync(path.join(home, 'elsewhere.json'), symlinkTarget);
@@ -2350,7 +2358,7 @@ test('audit mode allows raw apply_patch payloads and records only sanitized meta
   assert.match(auditLog, /"argsShape":\["__raw"\]/);
 });
 
-test('routing state writers keep 0600 files, 0700 directories, and registered child hashes only', () => {
+test('routing state writers keep private POSIX modes and registered child hashes only', () => {
   const home = makeTempDir('routing-home-');
   const repo = makeTempDir('routing-repo-');
   makeRepo(repo, 'festival-score-tracker');
@@ -2416,9 +2424,9 @@ test('routing state writers keep 0600 files, 0700 directories, and registered ch
     'audit.jsonl',
     'config.json',
   ];
-  assert.equal(fileMode(budgetDir), 0o700);
+  assertPrivateMode(budgetDir, 0o700);
   for (const name of expectedFiles) {
-    assert.equal(fileMode(path.join(budgetDir, name)), 0o600, `${name} must remain 0600`);
+    assertPrivateMode(path.join(budgetDir, name), 0o600);
   }
   const childRegistryText = fs.readFileSync(path.join(budgetDir, `${protectedSessionId}.child-agents.json`), 'utf8');
   assert.equal(childRegistryText.includes('child-agent-1'), false);

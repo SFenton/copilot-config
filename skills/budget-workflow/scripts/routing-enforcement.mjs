@@ -5,6 +5,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { hookDecision as oversizedReadDecision } from './budget.mjs';
+import { fsyncDirectory } from './durability.mjs';
 import { AUTOMATIC_ROUTE_ROLE_CATALOG, SUPPORTED_MODELS } from './model-catalog.mjs';
 import {
   DISPATCH_ROLE_CATALOG,
@@ -514,15 +515,6 @@ function safeRepositoryRoot(start) {
     const parent = path.dirname(current);
     if (parent === current) return null;
     current = parent;
-  }
-}
-
-function fsyncDirectory(directory) {
-  const fd = fs.openSync(directory, 'r');
-  try {
-    fs.fsyncSync(fd);
-  } finally {
-    fs.closeSync(fd);
   }
 }
 
@@ -1866,7 +1858,9 @@ function childStateFromManifest(manifest, extras) {
     protectedSession: false,
     role: manifest.role,
     repositoryMode: manifest.repository ? 'cwd-repository-root' : 'none',
-    repositoryHash: manifest.repository ? sha256(manifest.repository) : null,
+    repositoryHash: manifest.repository
+      ? sha256(fs.realpathSync(manifest.repository))
+      : null,
     scope: manifest.scope,
     scopeHash: manifest.scopeHash,
     allowedToolCategories: active ? manifest.allowedToolCategories : [],
@@ -3759,8 +3753,13 @@ export function authorizeIntentAcceptanceReceipt(input, options = {}) {
 function validateReasonOnlyLeafCommand(call, envelope, payload, promptState, home) {
   const command = String(call.args.command ?? '').trim();
   const tokens = tokenizeCommand(command);
-  if (tokens[0] !== 'node' || tokens.length < 4 ||
-    !/(?:^|\/)run-leaf\.mjs$/.test(tokens[1])) {
+  if (tokens[0] !== 'node' || tokens.length !== 4) {
+    return null;
+  }
+  const scriptFile = resolveCommandFile(payload.cwd, tokens[1]);
+  const scriptStat = fs.statSync(scriptFile, { throwIfNoEntry: false });
+  if (!scriptStat?.isFile() ||
+    fs.realpathSync(scriptFile) !== KNOWN_SCRIPT_REALPATHS.runLeaf) {
     return null;
   }
   const requestPath = tokens[2];
@@ -3911,11 +3910,27 @@ function resolvedStateRepositoryRoot(state, payload) {
   }
 }
 
+function canonicalPathForScope(candidate) {
+  const unresolved = path.resolve(candidate);
+  const missing = [];
+  let current = unresolved;
+  while (true) {
+    if (fs.lstatSync(current, { throwIfNoEntry: false })) {
+      return path.join(fs.realpathSync(current), ...missing);
+    }
+    const parent = path.dirname(current);
+    if (parent === current) return unresolved;
+    missing.unshift(path.basename(current));
+    current = parent;
+  }
+}
+
 function pathAllowedForState(candidate, payload, state, prefixes = state.scope) {
   const cwd = payload.cwd ?? process.cwd();
-  const absolute = path.isAbsolute(candidate)
+  const resolved = path.isAbsolute(candidate)
     ? path.normalize(candidate)
     : path.resolve(cwd, candidate);
+  const absolute = canonicalPathForScope(resolved);
   const repositoryRoot = resolvedStateRepositoryRoot(state, payload);
   if (repositoryRoot) {
     const relativeToRepo = path.relative(repositoryRoot, absolute);
@@ -3935,7 +3950,8 @@ function pathAllowedForState(candidate, payload, state, prefixes = state.scope) 
     });
   }
   if (prefixes.length === 0) return true;
-  return prefixes.some(prefix => absolute.startsWith(path.resolve(cwd, prefix)));
+  return prefixes.some(prefix =>
+    absolute.startsWith(canonicalPathForScope(path.resolve(cwd, prefix))));
 }
 
 function callFitsPathConstraints(call, payload, prefixes) {

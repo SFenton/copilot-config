@@ -7,6 +7,8 @@ import { transitionCandidate } from './improvement-candidates.mjs';
 
 const HASH_PATTERN = /^[a-f0-9]{64}$/;
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const NODE_SCRIPT_EXTENSIONS = new Set(['.cjs', '.js', '.mjs']);
+const WINDOWS_NATIVE_EXTENSIONS = new Set(['.com', '.exe']);
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -73,8 +75,24 @@ export function createReplayPlan(candidate, trajectories) {
   };
 }
 
+function executableEntrypoint(entrypoint) {
+  const stat = fs.statSync(entrypoint, { throwIfNoEntry: false });
+  if (!stat?.isFile()) return false;
+  if (process.platform !== 'win32') return (stat.mode & 0o111) !== 0;
+  const extension = path.extname(entrypoint).toLowerCase();
+  return NODE_SCRIPT_EXTENSIONS.has(extension) ||
+    WINDOWS_NATIVE_EXTENSIONS.has(extension);
+}
+
+function spawnEntrypoint(entrypoint, args, options) {
+  const nodeScript = process.platform === 'win32' &&
+    NODE_SCRIPT_EXTENSIONS.has(path.extname(entrypoint).toLowerCase());
+  return spawnSync(nodeScript ? process.execPath : entrypoint,
+    nodeScript ? [entrypoint, ...args] : args, options);
+}
+
 function replayStep(entrypoint, cwd, args) {
-  const result = spawnSync(entrypoint, args, {
+  const result = spawnEntrypoint(entrypoint, args, {
     cwd,
     encoding: 'utf8',
     timeout: 5000,
@@ -106,8 +124,7 @@ export function replayCandidate(candidate, trajectories, artifact = null) {
   const entrypoint = artifact?.entrypoint;
   const artifactHash = artifact?.artifactHash ?? null;
   const executable = typeof entrypoint === 'string' &&
-    fs.statSync(entrypoint, { throwIfNoEntry: false })?.isFile() &&
-    (fs.statSync(entrypoint).mode & 0o111) !== 0 &&
+    executableEntrypoint(entrypoint) &&
     HASH_PATTERN.test(artifactHash ?? '');
   const outcomes = executable
     ? relevant.map(item => {
@@ -258,9 +275,9 @@ function validateDeterministicArtifact(candidate, directory, manifest) {
       .every(file => manifest.files.includes(file)),
   'Deterministic artifact promotion allowlist is incomplete');
   const entrypoint = within(directory, manifest.entrypoint);
-  assert((fs.statSync(entrypoint).mode & 0o111) !== 0,
+  assert(executableEntrypoint(entrypoint),
     'Deterministic artifact entrypoint is not executable');
-  const selfTest = spawnSync(entrypoint, ['--self-test'], {
+  const selfTest = spawnEntrypoint(entrypoint, ['--self-test'], {
     cwd: directory,
     encoding: 'utf8',
     timeout: 5000,
@@ -460,8 +477,13 @@ function verifyRegistryIntegration(root, candidate, manifest, target) {
   const entry = registry.tools?.find(tool => tool.id === candidate.id);
   assert(entry, 'Project tool registry does not reference promoted tool');
   const targetRelative = path.relative(root, target).split(path.sep).join('/');
-  assert(JSON.stringify(entry).includes(targetRelative),
+  const entrypointRelative = path.posix.join(targetRelative, manifest.entrypoint);
+  assert(entry.argv?.includes(entrypointRelative),
     'Project tool registry entry does not reference promoted artifact');
+  if (NODE_SCRIPT_EXTENSIONS.has(path.extname(manifest.entrypoint).toLowerCase())) {
+    assert(entry.argv[0] === 'node' && entry.argv[1] === entrypointRelative,
+      'JavaScript tool registry entry must use a portable Node invocation');
+  }
 }
 
 export function promoteCandidate(root, candidate, incubationDirectory, bundle, policy) {

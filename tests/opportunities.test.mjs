@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { readAdapter } from '../skills/budget-workflow/scripts/budget.mjs';
 import { opportunityPlan, readEffectiveOpportunityPolicy, readOpportunityPolicy } from '../skills/budget-workflow/scripts/opportunities.mjs';
 import { executeOpportunityPhase } from '../skills/budget-workflow/scripts/opportunities.mjs';
@@ -356,7 +357,10 @@ test('invalid current opportunity declarations are terminal even when a default-
   assert.throws(() => readEffectiveOpportunityPolicy(root),
     /Unexpected end of JSON input|Opportunity policy/);
   const planned = spawnSync(process.execPath, [
-    new URL('../skills/budget-workflow/scripts/opportunities.mjs', import.meta.url).pathname,
+    fileURLToPath(new URL(
+      '../skills/budget-workflow/scripts/opportunities.mjs',
+      import.meta.url,
+    )),
     'validate',
     root,
   ], { cwd: root, encoding: 'utf8' });
