@@ -6,6 +6,10 @@ import { fileURLToPath } from 'node:url';
 import { contained, readAdapter } from '../skills/budget-workflow/scripts/budget.mjs';
 import { readOpportunityPolicy } from '../skills/budget-workflow/scripts/opportunities.mjs';
 import { readReleaseMachine } from '../skills/budget-workflow/scripts/release-machine.mjs';
+import {
+  instructionContractCheck,
+  loadProjectManifest,
+} from './project-manifest.mjs';
 
 export const ADAPTER_PATH = path.join('.github', 'agent-budget.json');
 export const BUDGET_HOOK_PATH = path.join('.github', 'hooks', 'budget-reads.json');
@@ -36,11 +40,6 @@ const MACHINE_EXCEPTION_REASONS = new Set([
   'stale-sol-exception-profile',
   'missing-sol-trigger-support',
 ]);
-const MANIFEST_REF_FIELDS = Object.freeze([
-  'instructionBaselineRef',
-  'instructionMigrationRef',
-]);
-
 const PROMPT_START_HOOK = {
   type: 'command',
   bash: 'node "$HOME/.copilot/skills/budget-workflow/scripts/routing-enforcement.mjs" prompt-start',
@@ -89,8 +88,8 @@ function validateManifestRef({
   index,
   ref,
   root,
+  value = item?.[ref],
 }) {
-  const value = item?.[ref];
   if (typeof value !== 'string' || value.length === 0) return null;
   try {
     exec('git', [
@@ -168,23 +167,25 @@ export function rootsFromManifest(manifestPath, {
   if (!isRegularFile(manifestPath)) {
     throw new Error(`Manifest is not a regular file: ${manifestPath}`);
   }
-  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-  if (!Array.isArray(manifest.cases) || manifest.cases.length === 0) {
-    throw new Error(`Manifest ${manifestPath} must contain a non-empty cases array`);
-  }
+  const manifest = loadProjectManifest(manifestPath);
   return manifest.cases.map((item, index) => {
     if (!item || typeof item.root !== 'string' || item.root.length === 0) {
       throw new Error(`Manifest ${manifestPath} contains a case without a root`);
     }
     const root = normalizeRoot(item.root);
-    for (const ref of MANIFEST_REF_FIELDS) {
+    const instruction = instructionContractCheck(item);
+    for (const ref of [
+      ['instructionContract.baselineRef', instruction?.baselineRef],
+      ['instructionContract.migrationRef', instruction?.migrationRef],
+    ]) {
       const failure = validateManifestRef({
         exec,
         manifestPath,
         item,
         index,
-        ref,
+        ref: ref[0],
         root,
+        value: ref[1],
       });
       if (failure) failures.push(failure);
     }

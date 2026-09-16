@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { loadProjectManifest } from './project-manifest.mjs';
 
 const manifest = process.env.BUDGET_PROJECT_MANIFEST;
 if (!manifest) {
@@ -11,10 +12,17 @@ if (!fs.statSync(manifest, { throwIfNoEntry: false })?.isFile()) {
   console.error(`Cross-project manifest is not a file: ${manifest}`);
   process.exit(2);
 }
+try {
+  loadProjectManifest(manifest);
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(2);
+}
 
 const tests = [
   'tests/opportunities.test.mjs',
   'tests/opportunity-pin-study.test.mjs',
+  'tests/project-manifest-conformance.test.mjs',
   'tests/project-contracts.test.mjs',
   'tests/registered-worktree-policies.test.mjs',
   'tests/agent-learning-policies.test.mjs',

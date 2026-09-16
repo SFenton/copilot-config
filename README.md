@@ -377,12 +377,40 @@ savings remain `null`, the candidate pool authorizes zero calls, and
 `runStudy` remains `false`.
 
 Fail-closed cross-project regression uses `npm run test:projects` and requires
-`BUDGET_PROJECT_MANIFEST` with `cases` containing `id` and `root`. Optional
-`instructionBaselineRef` and `instructionMigrationRef` fields may pin a
-pre/post-migration commit when verifying a relocated instruction surface.
-Keep local manifest paths and raw evidence outside the repository. The shared
-CI workflow consumes an exact-ref integration manifest instead of hardcoding
-repository identifiers.
+`BUDGET_PROJECT_MANIFEST` with `cases` containing `id`, either `root` or the
+exact checkout triple (`repository`, `ref`, `path`), and an explicit
+`conformance` object. `conformance.version` is currently `2`, and
+`conformance.surfaces` must declare every supported surface exactly once with a
+strict `{ applicable: true, ... }` or `{ applicable: false, reason: ... }`
+record. Cases with no applicable local surfaces still enumerate every surface
+as not applicable with bounded reasons. Supported surface keys are:
+
+- `expected-opportunity-ids` with the complete routed opportunity id list
+- `instruction-contract` with the relocated path plus optional exact
+  `baselineRef` / `migrationRef` pins
+- `release-skill` with the repository-local skill path
+- `repository-local-phase-checks` with exact deterministic no-side-effect
+  opportunity/phase probes
+- `compatibility-checks` with conventional repository-owned JSON artifacts that
+  declare one canonical contract identifier plus bounded deterministic vectors
+  and expected output hashes
+
+After checkout, false not-applicable declarations fail closed when the
+conventional repository surface exists. Compatibility validation reads strict
+inert JSON only, rejects path escape, ambiguity, unknown fields, and bounded
+size/depth/string abuse, then computes the declared contract with the shared
+canonical implementation; it never imports or executes repository-selected
+code. All manifest paths stay repository-contained, compatibility metadata
+remains data only, and prepare commands remain top-level so coverage
+declarations cannot smuggle shell execution. Keep local manifest paths and raw
+evidence outside the repository. The shared CI workflow consumes an exact-ref
+integration manifest instead of hardcoding repository identifiers. For sandbox
+fixtures on clean public runners, CI pre-pulls the declared images and accepts
+current public tags when a mutable upstream tag no longer resolves to the exact
+historical image ID, while the checked-in capability and sandbox metadata
+remain pinned and cross-checked separately; if a host-specific dependency mount
+is unavailable on the runner, the public workflow still fails closed on
+metadata drift without treating that runner limitation as repository drift.
 
 `task.json`:
 

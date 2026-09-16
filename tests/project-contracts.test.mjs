@@ -3,12 +3,15 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { pathToFileURL } from 'node:url';
 import { audit, readAdapter } from '../skills/budget-workflow/scripts/budget.mjs';
 import { readOpportunityPolicy } from '../skills/budget-workflow/scripts/opportunities.mjs';
 import { readReleaseMachine } from '../skills/budget-workflow/scripts/release-machine.mjs';
-import { pipelineContractHash }
-  from '../skills/budget-workflow/scripts/team-pipeline.mjs';
+import {
+  expectedOpportunityIds,
+  instructionContractCheck,
+  loadProjectManifest,
+  releaseSkillCheck,
+} from '../scripts/project-manifest.mjs';
 import {
   sha256,
   validateToolRegistry,
@@ -23,7 +26,7 @@ const studyCapabilityById = new Map(studyBudget.capabilities.map(item =>
   [item.id, item]));
 test('project adapters resolve and relocated contracts retain original detailed requirements',
   { skip: !manifest }, async () => {
-    const data = JSON.parse(fs.readFileSync(manifest, 'utf8'));
+      const data = loadProjectManifest(manifest);
     for (const item of data.cases) {
       const adapter = readAdapter(item.root);
       assert.ok(adapter.gates.length > 0);
@@ -112,9 +115,10 @@ test('project adapters resolve and relocated contracts retain original detailed 
       if (adapter.opportunityPolicy) {
         const policy = readOpportunityPolicy(item.root, adapter);
         assert.ok(policy.opportunities.length > 0);
-        if (item.expectedOpportunityIds) {
+        const expectedIds = expectedOpportunityIds(item);
+        if (expectedIds.length > 0) {
           assert.deepEqual(policy.opportunities.map(entry => entry.id).sort(),
-            [...item.expectedOpportunityIds].sort());
+            [...expectedIds].sort());
         }
         const profileIds = new Set(JSON.parse(fs.readFileSync(
           path.join(item.root, adapter.sandboxProfiles),
@@ -142,37 +146,18 @@ test('project adapters resolve and relocated contracts retain original detailed 
           }
         }
       }
-      if (item.id === 'ha') {
-        const releaseSkill = fs.readFileSync(path.join(
+      const releaseSkill = releaseSkillCheck(item);
+      if (releaseSkill) {
+        const releaseSkillText = fs.readFileSync(path.join(
           item.root,
-          '.github/skills/release-dashboard/SKILL.md',
+          releaseSkill.path,
         ), 'utf8');
-        assert.doesNotMatch(releaseSkill, /That invocation authorizes/);
-        assert.doesNotMatch(releaseSkill, /## Git and GitHub release/);
-        assert.doesNotMatch(releaseSkill, /\bstage an exact patch\b/i);
-        assert.doesNotMatch(releaseSkill, /\bgit add\b/i);
-        assert.match(releaseSkill, /blocked: release-machine-disabled/);
-        assert.match(releaseSkill, /medium model\s+cannot substitute/i);
-        const policy = readOpportunityPolicy(item.root, adapter);
-        const opportunity = policy.opportunities.find(entry =>
-          entry.id === 'ux');
-        const localCopy = await import(pathToFileURL(path.join(
-          item.root,
-          '.github/skills/house-style-copy/scripts/lib.mjs',
-        )).href);
-        assert.equal(
-          localCopy.routedPipelineContractHash(
-            policy.project,
-            opportunity,
-            policy.toolRegistry,
-          ),
-          pipelineContractHash(
-            policy.project,
-            opportunity,
-            policy.toolRegistry,
-          ),
-          'House-style trigger routing must use the canonical shared pipeline hash',
-        );
+        assert.doesNotMatch(releaseSkillText, /That invocation authorizes/);
+        assert.doesNotMatch(releaseSkillText, /## Git and GitHub release/);
+        assert.doesNotMatch(releaseSkillText, /\bstage an exact patch\b/i);
+        assert.doesNotMatch(releaseSkillText, /\bgit add\b/i);
+        assert.match(releaseSkillText, /blocked: release-machine-disabled/);
+        assert.match(releaseSkillText, /medium model\s+cannot substitute/i);
       }
       const hook = JSON.parse(fs.readFileSync(path.join(item.root, '.github/hooks/budget-reads.json'), 'utf8'));
       assert.equal(hook.version, 1);
@@ -202,21 +187,18 @@ test('project adapters resolve and relocated contracts retain original detailed 
         assert.match(destructive.steps.find(step => step.operation === 'rollback').label,
           /logical archive/i);
       }
-      const moved = {
-        ha: '.github/reference/dashboard-contract.md',
-        evershelf: '.github/reference/recipe-contract.md',
-      }[item.id];
-      if (moved) {
-        const baseline = item.instructionBaselineRef ?? 'HEAD';
-        const migration = item.instructionMigrationRef;
+      const instruction = instructionContractCheck(item);
+      if (instruction) {
+        const baseline = instruction.baselineRef ?? 'HEAD';
+        const migration = instruction.migrationRef;
         const previous = execFileSync('git', ['-C', item.root, 'show', `${baseline}:.github/copilot-instructions.md`], { encoding: 'utf8' });
         const migrated = migration
-          ? execFileSync('git', ['-C', item.root, 'show', `${migration}:${moved}`], { encoding: 'utf8' })
-          : fs.readFileSync(path.join(item.root, moved), 'utf8');
+          ? execFileSync('git', ['-C', item.root, 'show', `${migration}:${instruction.path}`], { encoding: 'utf8' })
+          : fs.readFileSync(path.join(item.root, instruction.path), 'utf8');
         assert.ok(migrated.endsWith(previous.slice(previous.indexOf('\n') + 1)),
           `${item.id} contract migration must preserve the prior contract verbatim after its heading`);
-        assert.equal(fs.statSync(path.join(item.root, moved)).isFile(), true);
-        assert.equal(after.files.find(file => file.file === moved).loading, 'task-reference');
+        assert.equal(fs.statSync(path.join(item.root, instruction.path)).isFile(), true);
+        assert.equal(after.files.find(file => file.file === instruction.path).loading, 'task-reference');
       }
     }
   });

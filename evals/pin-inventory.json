@@ -29,20 +29,14 @@
     { "project": "shared", "path": "skills/tandem-research/SKILL.md", "category": "authoring-skill-instruction-doc-constant" },
     { "project": "shared", "path": "instructions/budget-workflow.instructions.md", "category": "authoring-skill-instruction-doc-constant" },
     { "project": "shared", "path": "README.md", "category": "authoring-skill-instruction-doc-constant" },
-    { "project": "ha", "path": ".github/instructions/autonomous-admin.instructions.md", "category": "authoring-skill-instruction-doc-constant" },
     { "project": "ha", "path": ".github/copilot-instructions.md", "category": "authoring-skill-instruction-doc-constant" },
     { "project": "ha", "path": "README.md", "category": "authoring-skill-instruction-doc-constant" },
     { "project": "ha", "path": "docs/autonomous-admin-roadmap.md", "category": "authoring-skill-instruction-doc-constant" },
-    { "project": "ha", "path": ".github/skills/autonomous-hass-admin-executor/SKILL.md", "category": "authoring-skill-instruction-doc-constant" },
-    { "project": "ha", "path": ".github/instructions/simulated-user-panel.instructions.md", "category": "authoring-skill-instruction-doc-constant" },
     { "project": "ha", "path": ".github/skills/simulated-user-panel/SKILL.md", "category": "authoring-skill-instruction-doc-constant" },
-    { "project": "ha", "path": ".github/instructions/house-style-copy.instructions.md", "category": "authoring-skill-instruction-doc-constant" },
-    { "project": "ha", "path": ".github/skills/house-style-copy/SKILL.md", "category": "authoring-skill-instruction-doc-constant" },
     { "project": "ha", "path": ".github/skills/house-style-copy/evals/runtime-routing.json", "category": "authoring-skill-instruction-doc-constant" },
     { "project": "evershelf", "path": ".github/copilot-instructions.md", "category": "authoring-skill-instruction-doc-constant" },
     { "project": "fst", "path": ".github/skills/autonomous-plan-executor/SKILL.md", "category": "authoring-skill-instruction-doc-constant" },
     { "project": "fst", "path": "docs/governance/agent-budget.md", "category": "authoring-skill-instruction-doc-constant" },
-    { "project": "fst", "path": "docs/roadmap/post-scrape-processing.md", "category": "authoring-skill-instruction-doc-constant" },
-    { "project": "ha", "path": ".github/skills/house-style-copy/evals/model-pin.json", "category": "measured-external-pin", "historical": true }
+    { "project": "fst", "path": "docs/roadmap/post-scrape-processing.md", "category": "authoring-skill-instruction-doc-constant" }
   ]
 }

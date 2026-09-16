@@ -47,6 +47,8 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: copilot-config/package-lock.json
+      - run: npm ci
+        working-directory: copilot-config
       - name: Resolve and validate required integration manifest
         env:
           WORKFLOW_DISPATCH_PROJECT_MANIFEST_JSON: ${{ github.event.inputs.project_manifest_json || '' }}
@@ -70,37 +72,14 @@ jobs:
           }
           const [source, json] = candidates[0];
           fs.writeFileSync('project-manifest.json', `${json}\n`);
-          const manifest = JSON.parse(fs.readFileSync('project-manifest.json', 'utf8'));
-          if (!Array.isArray(manifest.cases) || manifest.cases.length === 0) {
-            throw new Error('project_manifest_json must contain a non-empty cases array');
-          }
-          for (const [index, item] of manifest.cases.entries()) {
-            if (!item || typeof item !== 'object') {
-              throw new Error(`cases[${index}] must be an object`);
-            }
-            for (const key of ['id', 'repository', 'ref', 'path']) {
-              if (typeof item[key] !== 'string' || item[key].length === 0) {
-                throw new Error(`cases[${index}].${key} is required`);
-              }
-            }
-            if (!/^[a-f0-9]{40}$/i.test(item.ref)) {
-              throw new Error(`cases[${index}].ref must be an exact 40-character commit SHA`);
-            }
-          }
-          if (manifest.prepareCommands !== undefined &&
-            (!Array.isArray(manifest.prepareCommands) ||
-              manifest.prepareCommands.some(command =>
-                typeof command !== 'string' || command.trim().length === 0))) {
-            throw new Error('prepareCommands must be an array of non-empty strings when provided');
-          }
           console.log(`Using ${source}`);
           NODE
+      - name: Validate manifest conformance contract
+        run: node copilot-config/scripts/checkout-project-manifest.mjs validate project-manifest.json
       - name: Check out exact integration refs from manifest
         env:
           CROSS_REPO_READ_TOKEN: ${{ secrets.CROSS_REPO_READ_TOKEN }}
         run: node copilot-config/scripts/checkout-project-manifest.mjs project-manifest.json resolved-project-manifest.json
-      - run: npm ci
-        working-directory: copilot-config
       - name: Run manifest-backed project prepare commands
         run: |
           node - <<'NODE'
@@ -110,6 +89,42 @@ jobs:
           for (const command of manifest.prepareCommands ?? []) {
             const result = spawnSync(command, {
               shell: true,
+              stdio: 'inherit',
+            });
+            if ((result.status ?? 1) !== 0) {
+              process.exit(result.status ?? 1);
+            }
+          }
+          NODE
+      - name: Pre-pull required project sandbox images
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const { spawnSync } = require('child_process');
+          const manifest = JSON.parse(fs.readFileSync('resolved-project-manifest.json', 'utf8'));
+          const images = new Set();
+          for (const item of manifest.cases ?? []) {
+            const adapter = JSON.parse(fs.readFileSync(
+              path.join(item.root, '.github', 'agent-budget.json'),
+              'utf8',
+            ));
+            if (typeof adapter.sandboxProfiles !== 'string' || adapter.sandboxProfiles.length === 0) {
+              continue;
+            }
+            const profiles = JSON.parse(fs.readFileSync(
+              path.join(item.root, adapter.sandboxProfiles),
+              'utf8',
+            ));
+            for (const profile of profiles.profiles ?? []) {
+              const image = profile?.sandbox?.image;
+              if (typeof image === 'string' && image.length > 0) {
+                images.add(image);
+              }
+            }
+          }
+          for (const image of [...images].sort()) {
+            const result = spawnSync('docker', ['pull', image], {
               stdio: 'inherit',
             });
             if ((result.status ?? 1) !== 0) {
