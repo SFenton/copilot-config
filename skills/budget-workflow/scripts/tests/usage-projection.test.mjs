@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   createIntentAcceptanceUsageRecord,
@@ -12,11 +13,15 @@ import {
 } from '../usage.mjs';
 
 const FIXTURE = path.join(
-  '/home/sfenton/.copilot/skills/budget-workflow/scripts/fixtures',
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+  'fixtures',
   'frontier-credit-projection.json',
 );
 const INTENT_FIXTURE = path.join(
-  '/home/sfenton/.copilot/skills/budget-workflow/scripts/fixtures',
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+  'fixtures',
   'intent-acceptance-credit-projection.json',
 );
 

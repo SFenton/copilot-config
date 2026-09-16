@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   authorizeIntentAcceptanceReceipt,
@@ -30,6 +31,10 @@ import { sha256 } from '../evidence/schemas.mjs';
 function makeTempDir(prefix) {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
 }
+
+const SCRIPT_DIR = path.dirname(fileURLToPath(new URL('../routing-enforcement.mjs', import.meta.url)));
+const RUN_LEAF_SCRIPT = path.join(SCRIPT_DIR, 'run-leaf.mjs');
+const OPPORTUNITIES_SCRIPT = path.join(SCRIPT_DIR, 'opportunities.mjs');
 
 function writeJson(file, value) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -817,7 +822,7 @@ test('user-intent-acceptance is reason-only, one-shot, and denied through task a
   });
   const requestFile = path.join(home, 'intent-request.json');
   writeJson(requestFile, request);
-  const command = `node /home/sfenton/.copilot/skills/budget-workflow/scripts/run-leaf.mjs ${requestFile} ${path.join(home, 'out')}`;
+  const command = `node ${RUN_LEAF_SCRIPT} ${requestFile} ${path.join(home, 'out')}`;
   assert.deepEqual(hookDecision({
     sessionId,
     cwd: home,
@@ -996,7 +1001,7 @@ test('hook timing stays bounded across 200 evaluations with large session histor
     cwd: home,
     toolCalls: [
       { id: 'view', name: 'view', args: { path: file, view_range: [1, 3] } },
-      { id: 'bash', name: 'bash', args: { command: 'node /home/sfenton/.copilot/skills/budget-workflow/scripts/opportunities.mjs plan /tmp/root /tmp/task.json' } },
+      { id: 'bash', name: 'bash', args: { command: `node ${OPPORTUNITIES_SCRIPT} plan /tmp/root /tmp/task.json` } },
     ],
   };
   const samples = [];
