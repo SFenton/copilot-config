@@ -125,17 +125,17 @@ export function route(task, adapter) {
   const model = {
     deterministic: null,
     'evidence-worker': 'gpt-5.4-mini',
-    'bounded-research': 'gpt-6-astra',
-    coordinator: 'hydrafusion',
-    'frontier-research': 'gpt-6-astra',
+    'bounded-research': 'gpt-5.6-sol',
+    coordinator: 'gpt-5.4',
+    'frontier-research': 'gpt-5.6-sol',
   }[tier];
   return {
     version: VERSION, project: adapter.project, tier, model,
-    effort: model === 'hydrafusion' || model === null ? null : strong || tier === 'bounded-research' ? 'high' : 'medium',
+    effort: model === null ? null : strong || tier === 'bounded-research' ? 'high' : 'medium',
     context: 'default', riskHits, reasons: {
       novel: task.novel, risk: task.risk, evidenceComplete: task.evidenceComplete,
     },
-    fallbackModel: model === 'hydrafusion' ? 'claude-sonnet-5' : null,
+    fallbackModel: null,
     researchQualification: tier.endsWith('research') ? 'not-promoted' : null,
     draftModel: null,
     researchEntryPoint: tier.endsWith('research') ? 'evidence/research.mjs plan: select repository/external/hybrid before research' : null,
@@ -143,7 +143,7 @@ export function route(task, adapter) {
     maxRevisions: 1, maxEscalations: 1, tandem: false,
     externalSideEffectsAuthorized: false,
     instructions: adapter.instructions, gates: adapter.gates,
-    warning: 'Legacy broad-task routing is conservative. Evidence-mode research uses evidence/research.mjs plan. No automatic draft worker. Routing is not authorization or quality certification.',
+    warning: 'Legacy broad-task routing is conservative. Evidence-mode research uses evidence/research.mjs plan. Protected sessions must dispatch non-research work to exact cheaper profiles or deterministic tools. Routing is not authorization or quality certification.',
   };
 }
 

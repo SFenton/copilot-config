@@ -91,8 +91,8 @@ function v2Fixture(root) {
     opportunity: 'release',
     variant: 'application-release',
     enabled: true,
-    supervisor: { model: 'gpt-5.6-sol', effort: 'high', context: 'default' },
-    exception: { model: 'gpt-5.6-sol', effort: 'max', context: 'long_context' },
+    supervisor: { model: 'gpt-5.4', effort: 'medium', context: 'default' },
+    exception: { model: 'gpt-5.6-sol', effort: 'high', context: 'default' },
     toolRegistry: {
       version: 1,
       project: 'sample',
@@ -266,7 +266,7 @@ test('version 2 executes only registered deterministic steps after frontier auth
       ...state.resolvedConfigurationEvents[0],
       data: {
         ...state.resolvedConfigurationEvents[0].data,
-        reasoningEffort: 'medium',
+        reasoningEffort: 'high',
       },
     }],
   }), /effort mismatch/);
@@ -336,7 +336,7 @@ test('enabled release machines reject cheap supervisors and disabled tools', t =
   assert.throws(() => validateReleaseMachineV2({
     ...machine,
     supervisor: { model: 'gpt-5-mini', effort: 'medium', context: 'default' },
-  }, 'sample'), /supervisor must be GPT-5.6 Sol/);
+  }, 'sample'), /gpt-5\.4 medium\/default/i);
   const disabled = {
     id: 'disabled-publish',
     kind: 'disabled',
@@ -385,18 +385,18 @@ test('enabled version 3 fake machines execute without command timeouts', t => {
     reviewer: {
       role: 'medium-review',
       profile: {
-        model: 'gpt-5.6-sol',
+        model: 'gpt-5.4',
         effort: 'medium',
         context: 'default',
       },
       authority: 'review-only',
     },
     exception: {
-      role: 'risk-triggered-frontier-review',
+      role: 'research-frontier',
       profile: {
         model: 'gpt-5.6-sol',
-        effort: 'max',
-        context: 'long_context',
+        effort: 'high',
+        context: 'default',
       },
       triggerIds: ['sample-release-conflict'],
       requiresTriggerReceipt: true,
@@ -627,8 +627,8 @@ test('fake external release faults route through rollback, cleanup and abnormal 
       opportunity: 'release',
       enabled: true,
       fakeOnly: true,
-      supervisor: { model: 'gpt-5.6-sol', effort: 'high', context: 'default' },
-      exception: { model: 'gpt-5.6-sol', effort: 'max', context: 'long_context' },
+      supervisor: { model: 'gpt-5.4', effort: 'medium', context: 'default' },
+      exception: { model: 'gpt-5.6-sol', effort: 'high', context: 'default' },
       toolRegistry: {
         version: 1,
         project: 'sample',

@@ -40,9 +40,9 @@ export class EvidenceBroker {
     this.configHash = digest(JSON.stringify(config));
     this.repo = config.mode === 'external' ? null : new RepositoryEvidence(config.repoRoot, config.repoPolicy, config.cacheDir);
     this.web = config.mode === 'repository' ? null : new WebEvidence({ ...config.web, presentation: config.presentation }, config.cacheDir, dependencies.fetcher);
-    this.state = { version: 1, configHash: this.configHash, operations: 0, returnedCharacters: 0,
+    this.state = { version: 2, configHash: this.configHash, operations: 0, returnedCharacters: 0,
       errors: [], events: [], repositoryReads: 0, webReads: 0, contract: null, sources: {}, delivered: {},
-      deliveredParagraphs: {}, catalog: {}, orientationOperations: 0 };
+      deliveredParagraphs: {}, catalog: {}, openedEvidence: {}, orientationOperations: 0 };
     if (fs.existsSync(config.stateFile)) {
       const previous = JSON.parse(fs.readFileSync(config.stateFile, 'utf8'));
       if (previous.configHash !== this.configHash) throw new Error('Evidence session config changed');
@@ -50,6 +50,7 @@ export class EvidenceBroker {
       this.state.delivered ??= {};
       this.state.deliveredParagraphs ??= {};
       this.state.catalog ??= {};
+      this.state.openedEvidence ??= {};
       this.state.orientationOperations ??= previous.events.filter(event =>
         event.scope === 'repository' || event.sourceId?.startsWith('r_')).length;
       if (this.web && previous.webStats) this.web.stats = previous.webStats;
@@ -172,6 +173,17 @@ export class EvidenceBroker {
         this.state.repositoryReads++;
         this.state.sources[result.id] = { kind: 'repository', path: result.path, sha256: result.sha256,
           start: result.start, end: result.end, completeUnit: result.completeUnit };
+        this.state.openedEvidence[result.id] = [{
+          sourceId: result.id,
+          citation: {
+            kind: 'repository',
+            path: result.path,
+            start: result.start,
+            end: result.end,
+          },
+          text: result.content,
+          focus: data.symbol ?? null,
+        }];
       } else {
         this.state.webReads++;
         for (const paragraph of result.paragraphs) this.state.deliveredParagraphs[paragraph.id] = true;
@@ -179,6 +191,15 @@ export class EvidenceBroker {
         this.state.sources[result.id] = { kind: 'external', url: result.url, title: result.title,
           sha256: result.sha256, verifiedAt: result.verifiedAt,
           paragraphIds: [...new Set([...prior, ...result.paragraphs.map(p => p.id)])] };
+        this.state.openedEvidence[result.id] = result.paragraphs.map(paragraph => ({
+          sourceId: result.id,
+          citation: {
+            kind: 'external',
+            paragraphIds: [paragraph.id],
+          },
+          text: paragraph.text,
+          focus: data.focus ?? null,
+        }));
       }
     });
   }

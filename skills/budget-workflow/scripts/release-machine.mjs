@@ -187,12 +187,14 @@ export function validateReleaseMachineV2(machine, project = machine?.project) {
   assert(machine.steps.some(step => step.operation === 'cleanup' && !step.rollbackOnly),
     'Release machine v2 requires unconditional cleanup');
   if (machine.enabled) {
-    assert(machine.supervisor.model === 'gpt-5.6-sol',
-      'Enabled release machine supervisor must be GPT-5.6 Sol');
+    assert(machine.supervisor.model === 'gpt-5.4' &&
+      machine.supervisor.effort === 'medium' &&
+      machine.supervisor.context === 'default',
+    'Enabled release machine supervisor must be gpt-5.4 medium/default');
     assert(machine.exception.model === 'gpt-5.6-sol' &&
-      machine.exception.effort === 'max' &&
-      machine.exception.context === 'long_context',
-    'Enabled release machine exception profile must be Sol max/long_context');
+      machine.exception.effort === 'high' &&
+      machine.exception.context === 'default',
+    'Enabled release machine exception profile must be Sol high/default research');
     const tools = machineToolIds(machine).map(id => toolById(machine.toolRegistry, id));
     assert(tools.every(tool => tool.kind !== 'disabled'),
       'Enabled release machine cannot reference disabled tools');
@@ -216,18 +218,18 @@ export function validateReleaseMachineV3(machine, project = machine?.project) {
     machine.reviewer.authority === 'review-only',
   'Release machine v3 medium reviewer contract required');
   validateProfile(machine.reviewer.profile, 'release reviewer');
-  assert(['claude-sonnet-5', 'gpt-5.6-sol'].includes(machine.reviewer.profile.model) &&
+  assert(machine.reviewer.profile.model === 'gpt-5.4' &&
     machine.reviewer.profile.effort === 'medium' &&
     machine.reviewer.profile.context === 'default',
-  'Release machine reviewer must be medium/default');
-  assert(machine.exception?.role === 'risk-triggered-frontier-review' &&
+  'Release machine reviewer must be gpt-5.4 medium/default');
+  assert(machine.exception?.role === 'research-frontier' &&
     machine.exception.requiresTriggerReceipt === true,
-  'Release machine v3 exception must be trigger-gated');
+  'Release machine v3 exception must be trigger-gated research');
   validateProfile(machine.exception.profile, 'release exception');
   assert(machine.exception.profile.model === 'gpt-5.6-sol' &&
-    machine.exception.profile.effort === 'max' &&
-    machine.exception.profile.context === 'long_context',
-  'Release machine exception must be Sol max/long_context');
+    machine.exception.profile.effort === 'high' &&
+    machine.exception.profile.context === 'default',
+  'Release machine exception must be Sol high/default research');
   assert(Array.isArray(machine.exception.triggerIds) &&
     machine.exception.triggerIds.length > 0 &&
     machine.exception.triggerIds.every(id =>

@@ -6,6 +6,21 @@ import {
   FAKE_DRIVER_CLASSES,
   runFakeExternalDriver,
 } from './fake-external.mjs';
+import {
+  SUPPORTED_CONTEXTS,
+  SUPPORTED_EFFORTS,
+  SUPPORTED_MODELS,
+} from './model-catalog.mjs';
+import { USAGE_ACCOUNTING_CATEGORIES } from './evidence/schemas.mjs';
+
+export {
+  SUPPORTED_CONTEXTS,
+  SUPPORTED_CONTEXT_VALUES,
+  SUPPORTED_EFFORTS,
+  SUPPORTED_EFFORT_VALUES,
+  SUPPORTED_MODEL_IDS,
+  SUPPORTED_MODELS,
+} from './model-catalog.mjs';
 
 export const EXECUTOR_KINDS = new Set(['deterministic', 'bounded-model', 'frontier']);
 export const TERMINAL_STATES = new Set([
@@ -26,33 +41,14 @@ export const SIDE_EFFECT_LEVELS = Object.freeze({
   destructive: 6,
 });
 
-export const SUPPORTED_MODELS = new Set([
-  'gpt-5.6-sol',
-  'gpt-5.6-terra',
-  'gpt-5.6-luna',
-  'gpt-6-astra',
-  'claude-sonnet-5',
-  'claude-opus-5',
-  'claude-opus-4.8',
-  'claude-opus-4.6',
-  'claude-sonnet-4.6',
-  'claude-haiku-4.5',
-  'gpt-5.4-mini',
-  'gpt-5-mini',
-  'gpt-5.5',
-  'mai-code-1.1-flash',
-  'mai-code-1-flash-picker',
-  'gemini-3.5-flash',
-  'gemini-3.6-flash',
-  'gemini-3.7-flash',
-  'gemini-3.8-flash',
-  'grok-4.5',
-]);
-const EFFORTS = new Set(['low', 'medium', 'high', 'max']);
-const CONTEXTS = new Set(['default', 'long_context']);
-
 function assert(condition, message) {
   if (!condition) throw new Error(message);
+}
+
+function usageCategory(value) {
+  assert(value === null || value === undefined || USAGE_ACCOUNTING_CATEGORIES.includes(value),
+    'Receipt usage category is invalid');
+  return value ?? null;
 }
 
 function canonicalValue(value) {
@@ -116,8 +112,8 @@ export function validateTriggerReceipt(receipt, context) {
 export function validateProfile(value, label = 'model') {
   assert(value && typeof value === 'object' && !Array.isArray(value), `${label} profile required`);
   assert(SUPPORTED_MODELS.has(value.model), `${label} model unsupported`);
-  assert(EFFORTS.has(value.effort), `${label} effort unsupported`);
-  assert(CONTEXTS.has(value.context), `${label} context unsupported`);
+  assert(SUPPORTED_EFFORTS.has(value.effort), `${label} effort unsupported`);
+  assert(SUPPORTED_CONTEXTS.has(value.context), `${label} context unsupported`);
   return value;
 }
 
@@ -587,6 +583,8 @@ export function createReceipt(input) {
     afterStateHash: input.afterStateHash,
     artifacts: input.artifacts ?? [],
     usage: input.usage ?? null,
+    usageCategory: usageCategory(input.usageCategory),
+    usageLineage: input.usageLineage ?? [],
     startedAt: input.startedAt,
     completedAt: input.completedAt,
   };
@@ -719,18 +717,124 @@ export function verifyReceiptChain(receipts, context) {
 
 export function resolvedConfiguration(events, expected) {
   const configured = events.filter(event => event.type === 'subagent.configured');
-  assert(configured.length === 1, 'Exactly one subagent.configured event required');
-  const data = configured[0].data ?? {};
-  const resolved = {
-    model: data.model,
-    effort: data.reasoningEffort,
-    context: data.contextTier,
+  const extract = data => ({
+    model: data?.model ?? data?.selectedModel ?? data?.selected_model ?? null,
+    effort: data?.reasoningEffort ?? data?.reasoning_effort ?? null,
+    context: data?.contextTier ?? data?.context_tier ?? null,
+  });
+  const assertExpected = (resolved, label) => {
+    assert(resolved.model === expected.model, `${label} model mismatch`);
+    assert(resolved.effort === expected.effort, `${label} reasoning effort mismatch`);
+    assert(resolved.context === expected.context, `${label} context tier mismatch`);
   };
-  assert(resolved.model === expected.model, 'Resolved model mismatch');
-  assert(resolved.effort === expected.effort, 'Resolved reasoning effort mismatch');
-  assert(resolved.context === expected.context, 'Resolved context tier mismatch');
+  if (configured.length > 0) {
+    assert(configured.length === 1, 'Exactly one subagent.configured event required');
+  }
+  const legacyResolved = configured.length === 1
+    ? extract(configured[0].data ?? {})
+    : null;
+  if (legacyResolved) assertExpected(legacyResolved, 'Resolved');
+  const modelCalls = events.filter(event => event.type === 'model.call_start');
+  if (modelCalls.length === 0) {
+    assert(legacyResolved,
+      'Resolved configuration requires subagent.configured or model.call_start evidence');
+    return {
+      ...legacyResolved,
+      evidenceHash: sha256(configured[0]),
+      source: 'subagent.configured',
+    };
+  }
+  const normalized = [...new Set(modelCalls.map(event =>
+    JSON.stringify(extract(event.data ?? {}))))].map(text => JSON.parse(text));
+  assert(normalized.length === 1,
+    'Resolved configuration is ambiguous across model.call_start events');
+  const resolved = normalized[0];
+  assert(resolved.model && resolved.effort && resolved.context,
+    'model.call_start evidence is missing exact model, reasoning effort, or context tier');
+  assertExpected(resolved, 'Resolved');
+  if (legacyResolved) {
+    assert(JSON.stringify(legacyResolved) === JSON.stringify(resolved),
+      'subagent.configured conflicts with model.call_start configuration evidence');
+  }
+  const toolTelemetry = resolvedToolTelemetry(events, resolved.model);
   return {
     ...resolved,
-    evidenceHash: sha256(configured[0]),
+    evidenceHash: sha256({
+      configured: configured[0] ?? null,
+      modelCalls,
+      toolTelemetryHash: toolTelemetry.evidenceHash,
+    }),
+    source: legacyResolved
+      ? 'subagent.configured+model.call_start+session.tools_updated+session.usage_checkpoint'
+      : 'model.call_start+session.tools_updated+session.usage_checkpoint',
+  };
+}
+
+function normalizeToolName(tool, label) {
+  if (typeof tool === 'string' && tool.length > 0) return tool;
+  if (tool && typeof tool === 'object' && !Array.isArray(tool) &&
+    typeof tool.name === 'string' && tool.name.length > 0) {
+    return tool.name;
+  }
+  throw new Error(`${label} tool name is invalid`);
+}
+
+function normalizeToolList(value, label) {
+  assert(Array.isArray(value), `${label} tools array required`);
+  return [...new Set(value.map((tool, index) =>
+    normalizeToolName(tool, `${label}[${index}]`)))].sort();
+}
+
+export function resolvedToolTelemetry(events, expectedModel = null) {
+  const toolsUpdated = events.filter(event => event.type === 'session.tools_updated');
+  assert(toolsUpdated.length > 0,
+    'Resolved configuration requires session.tools_updated evidence for the current CLI telemetry shape');
+  const declaredSignatures = toolsUpdated.map((event, index) =>
+    JSON.stringify(normalizeToolList(event.data?.tools ?? [],
+      `session.tools_updated[${index}]`)));
+  const uniqueDeclared = [...new Set(declaredSignatures)];
+  assert(uniqueDeclared.length === 1,
+    'session.tools_updated telemetry is ambiguous across events');
+  const declaredTools = JSON.parse(uniqueDeclared[0]);
+  const usageCheckpoints = events.filter(event => event.type === 'session.usage_checkpoint');
+  assert(usageCheckpoints.length > 0,
+    'Resolved configuration requires session.usage_checkpoint evidence for tool isolation');
+  const profiles = usageCheckpoints.flatMap((event, checkpointIndex) => {
+    const states = event.data?.promptCacheBreakState;
+    assert(Array.isArray(states) && states.length > 0,
+      `session.usage_checkpoint[${checkpointIndex}] is missing promptCacheBreakState telemetry`);
+    return states.flatMap((state, stateIndex) => {
+      assert(state && typeof state === 'object' && !Array.isArray(state),
+        `session.usage_checkpoint[${checkpointIndex}].promptCacheBreakState[${stateIndex}] is invalid`);
+      const models = state.models;
+      assert(models && typeof models === 'object' && !Array.isArray(models) &&
+        Object.keys(models).length > 0,
+      `session.usage_checkpoint[${checkpointIndex}] is missing model telemetry`);
+      return Object.entries(models).map(([model, data]) => {
+        assert(typeof model === 'string' && model.length > 0,
+          `session.usage_checkpoint[${checkpointIndex}] model key is invalid`);
+        assert(data && typeof data === 'object' && !Array.isArray(data),
+          `session.usage_checkpoint[${checkpointIndex}] ${model} tool telemetry is invalid`);
+        assert(Number.isInteger(data.tool_count) && data.tool_count >= 0,
+          `session.usage_checkpoint[${checkpointIndex}] ${model} tool_count is invalid`);
+        const tools = normalizeToolList(data.tools ?? [],
+          `session.usage_checkpoint[${checkpointIndex}] ${model}`);
+        assert(tools.length === data.tool_count,
+          `session.usage_checkpoint[${checkpointIndex}] ${model} tool_count conflicts with tools telemetry`);
+        return { model, count: data.tool_count, tools };
+      });
+    });
+  });
+  assert(profiles.length > 0,
+    'session.usage_checkpoint telemetry is missing model tool data');
+  if (expectedModel !== null) {
+    assert(profiles.every(profile => profile.model === expectedModel),
+      'session.usage_checkpoint telemetry conflicts with the resolved model');
+  }
+  return {
+    declaredTools,
+    profiles,
+    evidenceHash: sha256({ toolsUpdated, usageCheckpoints }),
+    source: 'session.tools_updated+session.usage_checkpoint',
   };
 }

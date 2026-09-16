@@ -7,7 +7,24 @@ import { spawn, execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { markUnknown, normalizeUsage, reserve, settle } from './usage.mjs';
 import { contained, packet as buildEvidencePacket } from './budget.mjs';
-import { SUPPORTED_MODELS, resolvedConfiguration } from './workflow.mjs';
+import {
+  SUPPORTED_CONTEXTS,
+  SUPPORTED_EFFORTS,
+  SUPPORTED_MODELS,
+  resolvedConfiguration,
+  resolvedToolTelemetry,
+} from './workflow.mjs';
+import {
+  REASON_ONLY_TOOL_MODE,
+  sha256,
+  validateFrozenEvidencePacket,
+  validateReasonOnlyResearchResult,
+} from './evidence/schemas.mjs';
+import {
+  INTENT_ACCEPTANCE_ROLE,
+  validateIntentAcceptancePacket,
+  validateIntentAcceptanceResult,
+} from './intent-acceptance.mjs';
 
 const researchTools = ['view', 'rg', 'grep', 'glob'];
 const brokerFunctions = ['evidence_find', 'evidence_open', 'evidence_contract'];
@@ -56,6 +73,10 @@ export function verifyEvidencePacket(workspace, supplied) {
   return true;
 }
 
+export function verifyFrozenEvidencePacket(supplied) {
+  return validateFrozenEvidencePacket(supplied);
+}
+
 export function verifyCorpus(workspace, expectedHash) {
   const manifest = JSON.parse(fs.readFileSync(path.join(workspace, 'corpus.json'), 'utf8'));
   if (!Array.isArray(manifest.sources) || !manifest.sources.length) throw new Error('Frozen research corpus required');
@@ -97,14 +118,26 @@ export function invocation(request, outputDirectory, mcpNames = []) {
   if (!Number.isInteger(request.timeoutSeconds) || request.timeoutSeconds < 10 || request.timeoutSeconds > 600) {
     throw new Error('timeoutSeconds must be 10-600');
   }
-  if (!['low', 'medium', 'high', 'max'].includes(request.effort)) throw new Error('Explicit supported effort required');
-  if (!['default', 'long_context'].includes(request.context)) throw new Error('Explicit context required');
-  if (request.toolMode !== undefined && !['research', 'broker'].includes(request.toolMode)) throw new Error('Unknown tool mode');
+  if (!SUPPORTED_EFFORTS.has(request.effort)) throw new Error('Explicit supported effort required');
+  if (!SUPPORTED_CONTEXTS.has(request.context)) throw new Error('Explicit context required');
+  if (request.toolMode !== undefined && !['research', 'broker', REASON_ONLY_TOOL_MODE].includes(request.toolMode)) throw new Error('Unknown tool mode');
   const research = request.toolMode === 'research';
   const broker = request.toolMode === 'broker';
+  const reasonOnly = request.toolMode === REASON_ONLY_TOOL_MODE;
   if (broker && (!request.brokerConfig || mcpNames.includes('budget_evidence'))) throw new Error('Broker configuration missing or owned MCP name conflicts');
   if (research && (typeof request.workspace !== 'string' || !path.isAbsolute(request.workspace))) {
     throw new Error('Research workspace must be explicit and absolute');
+  }
+  if (reasonOnly && request.evidencePacket === undefined) {
+    throw new Error('Reason-only mode requires a frozen evidence packet');
+  }
+  if (reasonOnly) {
+    const packet = request.dispatchManifest?.role === INTENT_ACCEPTANCE_ROLE
+      ? validateIntentAcceptancePacket(request.evidencePacket)
+      : verifyFrozenEvidencePacket(request.evidencePacket);
+    if (Date.parse(packet.expiresAt) <= Date.now()) {
+      throw new Error('Reason-only mode requires a non-stale frozen evidence packet');
+    }
   }
   const args = [
     '-C', research ? request.workspace : outputDirectory, '--model', request.model, '--context', request.context,
@@ -143,13 +176,25 @@ export async function run(request, outputDirectory) {
   const args = invocation(request, directory, configuredMcpNames());
   const research = request.toolMode === 'research';
   const broker = request.toolMode === 'broker';
+  const reasonOnly = request.toolMode === REASON_ONLY_TOOL_MODE;
   const workspace = research ? fs.realpathSync(request.workspace) : directory;
   const corpusHash = research
     ? crypto.createHash('sha256').update(JSON.stringify(verifyCorpus(workspace))).digest('hex') : null;
   const packetVerified = research && request.evidencePacket !== undefined
     ? verifyEvidencePacket(workspace, request.evidencePacket) : false;
-  if (request.evidencePacket !== undefined && (!packetVerified || !request.prompt.includes(JSON.stringify(request.evidencePacket)))) {
+  const frozenPacket = reasonOnly && request.evidencePacket !== undefined
+    ? request.dispatchManifest?.role === INTENT_ACCEPTANCE_ROLE
+      ? validateIntentAcceptancePacket(request.evidencePacket)
+      : verifyFrozenEvidencePacket(request.evidencePacket)
+    : null;
+  const frozenPacketHashBefore = frozenPacket?.packetHash ?? null;
+  if (request.evidencePacket !== undefined && research &&
+    (!packetVerified || !request.prompt.includes(JSON.stringify(request.evidencePacket)))) {
     throw new Error('Verified evidence packet must be included verbatim in the research prompt');
+  }
+  if (reasonOnly && (!request.prompt.includes(JSON.stringify(frozenPacket)) ||
+    !request.prompt.includes(frozenPacket.packetHash))) {
+    throw new Error('Reason-only prompts must include the verified packet JSON and packet hash verbatim');
   }
   // Exclusive directory creation prevents overwriting prior evidence or racing another run.
   fs.mkdirSync(directory, { recursive: false, mode: 0o700 });
@@ -169,11 +214,17 @@ export async function run(request, outputDirectory) {
     promptBytes: Buffer.byteLength(request.prompt), startedAt: new Date(start).toISOString(),
     toolAccess: broker ? 'mode-scoped evidence MCP only; no native filesystem, history, shell, direct URL or mutation tools'
       : research ? 'frozen-corpus read/search only; no shell, network or mutations'
-      : 'documentation schema only, denied; no repository/network/mutation tools',
-    workspace: research ? workspace : null, corpusHash, packetVerified, sanitized: true,
+      : reasonOnly
+        ? 'reason-only: no usable tools; documentation tool name is denied and any tool request invalidates the run'
+        : 'documentation schema only, denied; no repository/network/mutation tools',
+    workspace: research ? workspace : null,
+    corpusHash,
+    packetVerified: packetVerified || Boolean(frozenPacket),
+    evidencePacketHash: frozenPacket?.packetHash ?? (packetVerified
+      ? crypto.createHash('sha256').update(JSON.stringify(request.evidencePacket)).digest('hex')
+      : null),
+    sanitized: true,
     brokerConfigHash: brokerConfig ? crypto.createHash('sha256').update(JSON.stringify(brokerConfig)).digest('hex') : null,
-    evidencePacketHash: packetVerified
-      ? crypto.createHash('sha256').update(JSON.stringify(request.evidencePacket)).digest('hex') : null,
     reservationId: request.ledger ? reservationId : null,
   };
   fs.writeFileSync(path.join(directory, 'manifest.json'), JSON.stringify(manifest, null, 2));
@@ -252,26 +303,74 @@ export async function run(request, outputDirectory) {
     }, null, 2));
     throw error;
   }
-  const toolRequested = events.some(event =>
-    event.type === 'tool.execution_start' || (event.data?.toolRequests?.length ?? 0) > 0);
-  const toolProfiles = events.filter(event => event.type === 'session.usage_checkpoint')
-    .flatMap(event => (event.data.promptCacheBreakState ?? []).flatMap(state =>
-      Object.values(state.models ?? {}).map(model => ({ count: model.tool_count, tools: model.tools }))));
   const toolRequests = events.filter(event => event.type === 'assistant.message')
     .flatMap(event => event.data.toolRequests ?? []);
-  const toolIsolationVerified = toolProfiles.length > 0 && toolProfiles.every(profile =>
-    broker ? Array.isArray(profile.tools) && profile.count === profile.tools.length &&
+  const toolExecutions = events.filter(event => event.type === 'tool.execution_start');
+  const toolRequested = toolExecutions.length > 0 || toolRequests.length > 0;
+  let reasonOnlyTelemetry = null;
+  if (reasonOnly) {
+    try {
+      reasonOnlyTelemetry = resolvedToolTelemetry(events, request.model);
+    } catch (error) {
+      fs.writeFileSync(path.join(directory, 'result.json'), JSON.stringify({
+        ...manifest,
+        ...exit,
+        timedOut,
+        durationMs: Date.now() - start,
+        usagePresent,
+        eventLogTruncated: truncated,
+        resolvedConfiguration: configured,
+        configurationVerified: true,
+        resolvedToolTelemetry: null,
+        toolIsolationVerified: false,
+        isolationError: error.message,
+        warning: 'The model leg is invalid because exact tool-isolation telemetry is missing or inconsistent.',
+      }, null, 2));
+      throw error;
+    }
+  }
+  const toolProfiles = reasonOnly
+    ? reasonOnlyTelemetry.profiles
+    : events.filter(event => event.type === 'session.usage_checkpoint')
+      .flatMap(event => (event.data.promptCacheBreakState ?? []).flatMap(state =>
+        Object.values(state.models ?? {}).map(model => ({ count: model.tool_count, tools: model.tools }))));
+  const toolIsolationVerified = reasonOnly
+    ? !toolRequested && toolProfiles.length > 0 &&
+      toolProfiles.every(profile => profile.count === 0 && profile.tools.length === 0)
+    : toolProfiles.length > 0 && toolProfiles.every(profile =>
+      broker ? Array.isArray(profile.tools) && profile.count === profile.tools.length &&
       profile.tools.length >= 2 && profile.tools.every(tool => brokerToolNames.includes(tool.name)) :
       research
       ? Array.isArray(profile.tools) && profile.count === profile.tools.length &&
         profile.tools.every(tool => researchTools.includes(tool.name))
       : profile.count === 0 || (profile.count === 1 && profile.tools?.length === 1 &&
         profile.tools[0].name === 'fetch_copilot_cli_documentation'));
-  const scopeVerified = broker ? toolRequests.every(tool => brokerToolNames.includes(tool.name)) :
+  const scopeVerified = reasonOnly ? toolRequests.length === 0 && toolExecutions.length === 0 :
+    broker ? toolRequests.every(tool => brokerToolNames.includes(tool.name)) :
     !research || toolRequests.every(tool => researchToolRequestAllowed(tool, workspace));
   if (research) verifyCorpus(workspace, corpusHash);
   const answer = events.filter(event => event.type === 'assistant.message')
     .map(event => ({ model: event.data.model, content: event.data.content }));
+  let reasonOnlyValidated = null;
+  if (reasonOnly) {
+    const latest = answer.at(-1)?.content ?? '';
+    reasonOnlyValidated = request.dispatchManifest?.role === INTENT_ACCEPTANCE_ROLE
+      ? validateIntentAcceptanceResult(
+        latest,
+        frozenPacket,
+        { expectedAttempt: request.intentAcceptanceDispatchReceipt?.attempt },
+      )
+      : validateReasonOnlyResearchResult(
+        latest,
+        frozenPacket,
+        { expectedKind: request.expectedResultKind ?? undefined },
+      );
+  }
+  const frozenPacketHashAfter = frozenPacket
+    ? request.dispatchManifest?.role === INTENT_ACCEPTANCE_ROLE
+      ? validateIntentAcceptancePacket(frozenPacket).packetHash
+      : verifyFrozenEvidencePacket(frozenPacket).packetHash
+    : null;
   fs.writeFileSync(path.join(directory, 'answer.json'), JSON.stringify(answer, null, 2));
   const result = {
     ...manifest, ...exit, timedOut, durationMs: Date.now() - start,
@@ -279,7 +378,11 @@ export async function run(request, outputDirectory) {
     configurationVerified: true,
     usagePresent,
     eventLogTruncated: truncated, cancellationScope: 'owned-process-tree',
+    resolvedToolTelemetry: reasonOnlyTelemetry,
     toolRequested, toolIsolationVerified, scopeVerified, toolCalls: toolRequests.length,
+    reasonOnlyValidated: reasonOnly ? true : null,
+    reasonOnlyResultKind: reasonOnlyValidated?.kind ?? reasonOnlyValidated?.decision ?? null,
+    packetHashVerified: frozenPacket ? frozenPacketHashBefore === frozenPacketHashAfter : packetVerified,
     answerHash: crypto.createHash('sha256').update(JSON.stringify(answer)).digest('hex'),
     warning: 'No automatic retry. A failed/timed-out run may still be billed; missing usage is unknown, never zero.',
   };
@@ -293,9 +396,11 @@ export async function run(request, outputDirectory) {
     result.evidenceMode = brokerConfig.mode;
   }
   fs.writeFileSync(path.join(directory, 'result.json'), JSON.stringify(result, null, 2));
-  if (exit.code !== 0 || timedOut || !result.usagePresent || (!research && !broker && toolRequested) ||
+  if (exit.code !== 0 || timedOut || !result.usagePresent || (!research && !broker && !reasonOnly && toolRequested) ||
       (broker && !result.brokerEvidenceVerified) ||
-      !toolIsolationVerified || !scopeVerified || (research && toolRequests.length === 0 && !packetVerified)) {
+      !toolIsolationVerified || !scopeVerified ||
+      (research && toolRequests.length === 0 && !packetVerified) ||
+      (reasonOnly && (!result.packetHashVerified || toolRequested || toolRequests.length > 0))) {
     throw new Error(`Leaf incomplete or isolation unverified; inspect ${directory}/result.json and stderr.txt`);
   }
   return result;

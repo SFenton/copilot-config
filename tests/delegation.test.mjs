@@ -356,7 +356,7 @@ function reviewedApplyFixture(t) {
         coordinator: {
           role: 'medium-coordinator',
           profile: {
-            model: 'gpt-5.6-sol',
+            model: 'gpt-5.4',
             effort: 'medium',
             context: 'default',
           },
@@ -365,7 +365,7 @@ function reviewedApplyFixture(t) {
         reviewer: {
           role: 'medium-review',
           profile: {
-            model: 'gpt-5.6-sol',
+            model: 'gpt-5.4',
             effort: 'medium',
             context: 'default',
           },
@@ -396,7 +396,7 @@ function reviewedApplyFixture(t) {
         id: 'external-research',
         kind: 'research-frontier',
         profile: {
-          model: 'gpt-6-astra',
+          model: 'gpt-5.6-sol',
           effort: 'high',
           context: 'default',
         },
@@ -406,8 +406,8 @@ function reviewedApplyFixture(t) {
         id: 'binding-spec',
         kind: 'spec-planner',
         profile: {
-          model: 'gpt-5.6-sol',
-          effort: 'high',
+          model: 'gpt-5.4',
+          effort: 'medium',
           context: 'default',
         },
         triggerIds: ['binding-novel-spec-required'],
@@ -544,8 +544,8 @@ function reviewedApplyFixture(t) {
       sandboxImageId: imageId,
       sandboxDependencyPolicyHash: sha256([]),
       capabilityQualificationHash: null,
-      coordinator: { model: 'gpt-5.6-sol', effort: 'medium', context: 'default' },
-      reviewer: { model: 'gpt-5.6-sol', effort: 'medium', context: 'default' },
+      coordinator: { model: 'gpt-5.4', effort: 'medium', context: 'default' },
+      reviewer: { model: 'gpt-5.4', effort: 'medium', context: 'default' },
       trustTier: 'reviewed-application',
       pipelineHash,
     },

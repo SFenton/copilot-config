@@ -16,6 +16,7 @@ const tests = [
   'tests/opportunities.test.mjs',
   'tests/opportunity-pin-study.test.mjs',
   'tests/project-contracts.test.mjs',
+  'tests/registered-worktree-policies.test.mjs',
   'tests/agent-learning-policies.test.mjs',
   'tests/project-sandboxes.test.mjs',
   'tests/project-tools.test.mjs',

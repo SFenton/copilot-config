@@ -5,23 +5,20 @@ on:
   push:
     branches:
       - main
+  workflow_call:
+    inputs:
+      project_manifest_json:
+        description: Exact-ref integration manifest JSON with cases[].repository/ref/path and optional prepareCommands
+        required: false
+        type: string
+    secrets:
+      CROSS_REPO_READ_TOKEN:
+        required: false
   workflow_dispatch:
     inputs:
-      ha_ref:
-        description: Exact 40-character ha-sfenton-react-dash commit SHA
-        required: true
-        type: string
-      evershelf_ref:
-        description: Exact 40-character EverShelf commit SHA
-        required: true
-        type: string
-      ha_evershelf_ref:
-        description: Exact 40-character ha-evershelf commit SHA
-        required: true
-        type: string
-      fst_ref:
-        description: Exact 40-character FestivalScoreTracker commit SHA
-        required: true
+      project_manifest_json:
+        description: Exact-ref integration manifest JSON with cases[].repository/ref/path and optional prepareCommands
+        required: false
         type: string
 
 permissions:
@@ -40,73 +37,87 @@ jobs:
       - run: npm test
 
   projects:
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
         with:
           path: copilot-config
-      - uses: actions/checkout@v6
-        with:
-          repository: SFenton/ha-sfenton-react-dash
-          ref: ${{ inputs.ha_ref }}
-          path: projects/ha-react
-          token: ${{ secrets.CROSS_REPO_READ_TOKEN }}
-          fetch-depth: 0
-      - uses: actions/checkout@v6
-        with:
-          repository: SFenton/EverShelf
-          ref: ${{ inputs.evershelf_ref }}
-          path: projects/evershelf
-          token: ${{ secrets.CROSS_REPO_READ_TOKEN }}
-          fetch-depth: 0
-      - uses: actions/checkout@v6
-        with:
-          repository: SFenton/ha-evershelf
-          ref: ${{ inputs.ha_evershelf_ref }}
-          path: projects/ha-evershelf
-          token: ${{ secrets.CROSS_REPO_READ_TOKEN }}
-      - uses: actions/checkout@v6
-        with:
-          repository: SFenton/FestivalScoreTracker
-          ref: ${{ inputs.fst_ref }}
-          path: projects/fst
-          token: ${{ secrets.CROSS_REPO_READ_TOKEN }}
       - uses: actions/setup-node@v6
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: copilot-config/package-lock.json
-      - name: Require immutable project refs
+      - name: Resolve and validate required integration manifest
         env:
-          HA_REF: ${{ inputs.ha_ref }}
-          EVERSHELF_REF: ${{ inputs.evershelf_ref }}
-          HA_EVERSHELF_REF: ${{ inputs.ha_evershelf_ref }}
-          FST_REF: ${{ inputs.fst_ref }}
+          WORKFLOW_DISPATCH_PROJECT_MANIFEST_JSON: ${{ github.event.inputs.project_manifest_json || '' }}
+          WORKFLOW_CALL_PROJECT_MANIFEST_JSON: ${{ inputs.project_manifest_json || '' }}
+          VARIABLE_PROJECT_MANIFEST_JSON: ${{ vars.BUDGET_PROJECT_MANIFEST_JSON || '' }}
+          SECRET_PROJECT_MANIFEST_JSON: ${{ secrets.BUDGET_PROJECT_MANIFEST_JSON || '' }}
         run: |
-          node -e "for(const [name,value] of Object.entries(process.env).filter(([name])=>name.endsWith('_REF'))){if(!/^[a-f0-9]{40}$/.test(value??''))throw new Error(name+' must be an exact commit SHA')}"
+          node - <<'NODE'
+          const fs = require('fs');
+          const candidates = [
+            ['workflow_dispatch input', process.env.WORKFLOW_DISPATCH_PROJECT_MANIFEST_JSON],
+            ['workflow_call input', process.env.WORKFLOW_CALL_PROJECT_MANIFEST_JSON],
+            ['repository variable BUDGET_PROJECT_MANIFEST_JSON', process.env.VARIABLE_PROJECT_MANIFEST_JSON],
+            ['repository secret BUDGET_PROJECT_MANIFEST_JSON', process.env.SECRET_PROJECT_MANIFEST_JSON],
+          ].map(([source, value]) => [source, typeof value === 'string' ? value.trim() : ''])
+            .filter(([, value]) => value.length > 0);
+          if (candidates.length === 0) {
+            throw new Error(
+              'Manifest-backed exact-ref integration manifest is required on pull_request, push, workflow_dispatch, and workflow_call runs. Supply project_manifest_json or configure BUDGET_PROJECT_MANIFEST_JSON as a repository variable or secret.',
+            );
+          }
+          const [source, json] = candidates[0];
+          fs.writeFileSync('project-manifest.json', `${json}\n`);
+          const manifest = JSON.parse(fs.readFileSync('project-manifest.json', 'utf8'));
+          if (!Array.isArray(manifest.cases) || manifest.cases.length === 0) {
+            throw new Error('project_manifest_json must contain a non-empty cases array');
+          }
+          for (const [index, item] of manifest.cases.entries()) {
+            if (!item || typeof item !== 'object') {
+              throw new Error(`cases[${index}] must be an object`);
+            }
+            for (const key of ['id', 'repository', 'ref', 'path']) {
+              if (typeof item[key] !== 'string' || item[key].length === 0) {
+                throw new Error(`cases[${index}].${key} is required`);
+              }
+            }
+            if (!/^[a-f0-9]{40}$/i.test(item.ref)) {
+              throw new Error(`cases[${index}].ref must be an exact 40-character commit SHA`);
+            }
+          }
+          if (manifest.prepareCommands !== undefined &&
+            (!Array.isArray(manifest.prepareCommands) ||
+              manifest.prepareCommands.some(command =>
+                typeof command !== 'string' || command.trim().length === 0))) {
+            throw new Error('prepareCommands must be an array of non-empty strings when provided');
+          }
+          console.log(`Using ${source}`);
+          NODE
+      - name: Check out exact integration refs from manifest
+        env:
+          CROSS_REPO_READ_TOKEN: ${{ secrets.CROSS_REPO_READ_TOKEN }}
+        run: node copilot-config/scripts/checkout-project-manifest.mjs project-manifest.json resolved-project-manifest.json
       - run: npm ci
         working-directory: copilot-config
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-      - name: Install project validation dependencies
+      - name: Run manifest-backed project prepare commands
         run: |
-          npm ci --prefix projects/ha-react
-          corepack yarn --cwd projects/fst/FortniteFestivalWeb install --immutable
-          python -m pip install --user pytest pytest-asyncio
-          docker pull node:22-bookworm-slim
-          docker pull php:8.3-cli
-          docker pull python:3.12-slim
-      - name: Build project manifest
-        run: |
-          node -e "const fs=require('fs');const p=process.cwd();fs.writeFileSync('project-manifest.json',JSON.stringify({cases:[
-            {id:'ha',root:p+'/projects/ha-react',instructionBaselineRef:'1390ad6^',instructionMigrationRef:'1390ad6'},
-            {id:'evershelf',root:p+'/projects/evershelf',instructionBaselineRef:'fe46c03^',instructionMigrationRef:'fe46c03'},
-            {id:'ha-evershelf',root:p+'/projects/ha-evershelf'},
-            {id:'fst',root:p+'/projects/fst'}
-          ]},null,2))"
+          node - <<'NODE'
+          const fs = require('fs');
+          const { spawnSync } = require('child_process');
+          const manifest = JSON.parse(fs.readFileSync('resolved-project-manifest.json', 'utf8'));
+          for (const command of manifest.prepareCommands ?? []) {
+            const result = spawnSync(command, {
+              shell: true,
+              stdio: 'inherit',
+            });
+            if ((result.status ?? 1) !== 0) {
+              process.exit(result.status ?? 1);
+            }
+          }
+          NODE
       - run: npm run test:projects
         working-directory: copilot-config
         env:
-          BUDGET_PROJECT_MANIFEST: ${{ github.workspace }}/project-manifest.json
+          BUDGET_PROJECT_MANIFEST: ${{ github.workspace }}/resolved-project-manifest.json

@@ -56,7 +56,7 @@ Question: ${item.question}\n`;
     };
     fs.writeFileSync(path.join(destination, `${item.id}.case.json`), JSON.stringify(result, null, 2));
     for (const [name, model, effort, context, prompt] of [
-      ['baseline', 'gpt-6-astra', 'max', 'long_context', baselinePrompt],
+      ['baseline', 'gpt-5.6-sol', 'high', 'default', baselinePrompt],
       ['candidate', 'gpt-5.4-mini', 'medium', 'default', candidatePrompt],
     ]) {
       fs.writeFileSync(path.join(destination, `${item.id}.${name}.json`), JSON.stringify({

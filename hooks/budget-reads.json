@@ -1,10 +1,17 @@
 {
   "version": 1,
   "hooks": {
-    "preToolUse": [
+    "userPromptSubmitted": [
       {
         "type": "command",
-        "bash": "node \"$HOME/.copilot/skills/budget-workflow/scripts/budget.mjs\" hook",
+        "bash": "node \"$HOME/.copilot/skills/budget-workflow/scripts/routing-enforcement.mjs\" prompt-start",
+        "timeoutSec": 5
+      }
+    ],
+    "sessionEnd": [
+      {
+        "type": "command",
+        "bash": "node \"$HOME/.copilot/skills/budget-workflow/scripts/routing-enforcement.mjs\" session-end",
         "timeoutSec": 5
       }
     ]

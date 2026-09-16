@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "assumptions": "Projected user-intent-acceptance costs are packet-only and tool-free. Credits are explicit projections, not billing guarantees. Observed multipliers model a GPT-5.4-like or Sol-like 1x lane and an Opus-like 15x lane while preserving the 20 KB packet target and two-attempt maximum.",
+  "scenarios": {
+    "one-pass-gpt-5-4-selected": {
+      "selectedModel": "gpt-5.4",
+      "attemptCount": 1,
+      "packetBytes": 12288,
+      "outcome": "accepted",
+      "baseCredits": 0.8,
+      "observedMultiplier": 1,
+      "projectedCredits": 0.8,
+      "pricingAssumption": "Projection only: GPT-5.4-like observed 1x multiplier for one packet-only acceptance call.",
+      "toolCalls": 0
+    },
+    "one-remediation-retry": {
+      "selectedModel": "gpt-5.4",
+      "attemptCount": 2,
+      "packetBytes": 16384,
+      "outcome": "missing",
+      "baseCredits": 0.8,
+      "observedMultiplier": 1,
+      "projectedCredits": 1.6,
+      "pricingAssumption": "Projection only: one remediation retry doubles the GPT-5.4-like observed 1x acceptance lane.",
+      "toolCalls": 0
+    },
+    "sol-like-observed-1x": {
+      "selectedModel": "gpt-5.6-sol",
+      "attemptCount": 1,
+      "packetBytes": 18432,
+      "outcome": "accepted",
+      "baseCredits": 1.1,
+      "observedMultiplier": 1,
+      "projectedCredits": 1.1,
+      "pricingAssumption": "Projection only: Sol-like observed 1x multiplier when explicitly user-selected for packet-only acceptance.",
+      "toolCalls": 0
+    },
+    "opus-like-observed-15x": {
+      "selectedModel": "claude-opus-5",
+      "attemptCount": 1,
+      "packetBytes": 19456,
+      "outcome": "accepted",
+      "baseCredits": 0.9,
+      "observedMultiplier": 15,
+      "projectedCredits": 13.5,
+      "pricingAssumption": "Projection only: Opus-like observed 15x multiplier when explicitly user-selected for packet-only acceptance.",
+      "toolCalls": 0
+    }
+  }
+}

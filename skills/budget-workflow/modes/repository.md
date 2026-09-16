@@ -17,12 +17,15 @@ From the shared skill directory:
 node scripts/evidence/research.mjs init TASK.json /absolute/repo /private/new-session /private/cache
 node scripts/evidence/research.mjs evidence /private/new-session find '{"scope":"repository","query":"validation"}'
 node scripts/evidence/research.mjs evidence /private/new-session open '{"path":"src/helper.ts","symbol":"validate"}'
+node scripts/evidence/research.mjs packet TASK.json /absolute/repo /private/new-session
 ```
 
 Discover across the adapter's allowed tree. Results report searched/skipped/ranked
 coverage; ranking is not exhaustive semantic search. Direct path/symbol reads
 avoid redundant handle discovery. Complete syntax units retain guards and
 decorators. Follow callers/shared validators only when needed for correctness.
+Freeze the packet before any model reasoning. Frontier legs consume the packet
+with `toolMode: reason-only`; they do not receive repository tools.
 
 Changed source invalidates old handles. Re-discover rather than treating a stale
 summary as truth. Before implementation, return to native project tools, inspect

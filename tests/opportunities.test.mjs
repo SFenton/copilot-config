@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { readAdapter } from '../skills/budget-workflow/scripts/budget.mjs';
-import { opportunityPlan, readOpportunityPolicy } from '../skills/budget-workflow/scripts/opportunities.mjs';
+import { opportunityPlan, readEffectiveOpportunityPolicy, readOpportunityPolicy } from '../skills/budget-workflow/scripts/opportunities.mjs';
 import { executeOpportunityPhase } from '../skills/budget-workflow/scripts/opportunities.mjs';
 import { sha256 } from '../skills/budget-workflow/scripts/workflow.mjs';
 import { makeScratch } from './helpers/scratch.mjs';
@@ -212,6 +212,156 @@ test('version 2 deterministic opportunity phases execute only registered authori
   assert.equal(result.execution.stdout, 'inspected');
   assert.equal(result.receipt.status, 'accepted');
   assert.equal(result.receipt.toolId, 'inspect');
+});
+
+test('invalid current opportunity declarations are terminal even when a default-ref fallback exists', t => {
+  const root = makeScratch('opportunity-current-invalid-');
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  execFileSync('git', ['init', '-q'], { cwd: root });
+  execFileSync('git', ['-C', root, 'config', 'user.email', 'fixture@example.invalid']);
+  execFileSync('git', ['-C', root, 'config', 'user.name', 'Fixture']);
+  fs.mkdirSync(path.join(root, '.github'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'README.md'), 'fixture\n');
+  fs.writeFileSync(path.join(root, '.github', 'agent-learning.json'), JSON.stringify({
+    version: 1,
+    project: 'fixture',
+    enabled: true,
+    retentionDays: 30,
+    thresholds: {
+      minimumSuccessfulWorkflows: 3,
+      minimumDistinctSessions: 2,
+      minimumStability: 0.8,
+      maximumCandidatesPerWorkflow: 1,
+      minimumOperationCount: 2,
+      maximumSubgraphOperations: 6,
+      maximumAnalysisEvents: 10000,
+    },
+    priorities: [],
+    destinations: {
+      incubation: '.git/copilot-learning',
+      tools: '.github/learned-tools',
+      skills: '.github/skills',
+      fixtures: 'tests/fixtures/learning',
+    },
+    eligiblePaths: ['.'],
+    excludedPaths: ['.env'],
+    riskClasses: [],
+    validators: [],
+    knownTools: [],
+    knownSkills: [],
+    automaticBuild: false,
+    automaticPromotion: false,
+    continuation: { enabled: false },
+    promotion: {
+      allowedSideEffects: ['none', 'workspace'],
+      requireReplay: true,
+      requireProjectValidation: true,
+      requireMediumReview: true,
+      requirePositiveValue: true,
+      requireScopeCheck: true,
+      requireRollback: true,
+    },
+  }));
+  fs.writeFileSync(path.join(root, '.github', 'agent-tools.json'), JSON.stringify({
+    version: 1,
+    project: 'fixture',
+    tools: [{
+      id: 'fixture-validator',
+      kind: 'command',
+      argv: [process.execPath, '-e', 'process.exit(0)'],
+      cwd: '.',
+      timeoutSeconds: 30,
+      sideEffect: 'none',
+      environment: [],
+    }],
+  }));
+  fs.writeFileSync(path.join(root, '.github', 'opportunity-evaluation.json'),
+    JSON.stringify({ qualificationStatus: 'provisional' }));
+  fs.writeFileSync(path.join(root, '.github', 'worker-evaluation.json'),
+    JSON.stringify({ qualificationStatus: 'provisional' }));
+  fs.writeFileSync(path.join(root, '.github', 'agent-opportunities.json'),
+    JSON.stringify({
+      version: 3,
+      project: 'fixture',
+      qualification: {
+        status: 'provisional',
+        minimumUnattendedCases: 30,
+        automaticApplication: false,
+      },
+      triggerCatalog: [],
+      opportunities: [{
+        id: 'fixture',
+        label: 'Fixture',
+        triggers: ['fixture route'],
+        evidence: 'repository',
+        enabled: true,
+        evaluationStatus: 'provisional',
+        casePacketStatus: 'provisional',
+        skills: [],
+        team: {
+          id: 'fixture-team',
+          topology: 'medium-owner-only',
+          trustTier: 'provisional-staging',
+          maxRevisions: 1,
+          coordinator: {
+            role: 'medium-coordinator',
+            profile: { model: 'gpt-5.4', effort: 'medium', context: 'default' },
+            evidenceStatus: 'provisional',
+          },
+          reviewer: {
+            role: 'medium-review',
+            profile: { model: 'gpt-5.4', effort: 'medium', context: 'default' },
+            evidenceStatus: 'provisional',
+          },
+          workerCandidate: {
+            role: 'cheap-worker',
+            enabled: false,
+            profile: { model: 'gpt-5-mini', effort: 'medium', context: 'default' },
+            evidenceStatus: 'disabled',
+            authority: 'staging-only',
+          },
+          repositoryApply: { authority: 'operator', enabled: false },
+        },
+        conditionalProfiles: [],
+        phases: [{
+          id: 'coordinate',
+          kind: 'medium-coordinator',
+          profileRef: 'coordinator',
+        }],
+        rationale: 'Fixture route.',
+      }],
+    }));
+  fs.writeFileSync(path.join(root, '.github', 'agent-budget.json'), JSON.stringify({
+    version: 1,
+    project: 'fixture',
+    learningPolicy: '.github/agent-learning.json',
+    opportunityPolicy: '.github/agent-opportunities.json',
+    toolRegistry: '.github/agent-tools.json',
+    opportunityEvaluation: '.github/opportunity-evaluation.json',
+    workerEvaluation: '.github/worker-evaluation.json',
+    instructions: ['README.md'],
+    riskTerms: [],
+    gates: ['fixture'],
+  }));
+  execFileSync('git', ['-C', root, 'add', '.']);
+  execFileSync('git', ['-C', root, 'commit', '-qm', 'valid policy']);
+  const revision = execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'], {
+    encoding: 'utf8',
+  }).trim();
+  execFileSync('git', ['-C', root, 'remote', 'add', 'origin',
+    'https://example.invalid/fixture/opportunities.git']);
+  execFileSync('git', ['-C', root, 'update-ref', 'refs/remotes/origin/main', revision]);
+  fs.writeFileSync(path.join(root, '.github', 'agent-opportunities.json'),
+    '{"version":3,"project":"fixture","qualification":');
+  assert.throws(() => readEffectiveOpportunityPolicy(root),
+    /Unexpected end of JSON input|Opportunity policy/);
+  const planned = spawnSync(process.execPath, [
+    new URL('../skills/budget-workflow/scripts/opportunities.mjs', import.meta.url).pathname,
+    'validate',
+    root,
+  ], { cwd: root, encoding: 'utf8' });
+  assert.equal(planned.status, 1);
+  assert.match(planned.stderr, /Unexpected end of JSON input|Opportunity policy/);
 });
 
 const projectManifest = process.env.BUDGET_PROJECT_MANIFEST;

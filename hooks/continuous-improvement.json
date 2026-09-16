@@ -1,13 +1,6 @@
 {
   "version": 1,
   "hooks": {
-    "userPromptSubmitted": [
-      {
-        "type": "command",
-        "bash": "node \"$HOME/.copilot/skills/budget-workflow/scripts/continuous-improvement.mjs\" user-prompt-submitted",
-        "timeoutSec": 5
-      }
-    ],
     "postToolUse": [
       {
         "type": "command",
@@ -34,13 +27,6 @@
         "type": "command",
         "bash": "node \"$HOME/.copilot/skills/budget-workflow/scripts/continuous-improvement.mjs\" agent-stop",
         "timeoutSec": 10
-      }
-    ],
-    "sessionEnd": [
-      {
-        "type": "command",
-        "bash": "node \"$HOME/.copilot/skills/budget-workflow/scripts/continuous-improvement.mjs\" session-end",
-        "timeoutSec": 5
       }
     ]
   }
