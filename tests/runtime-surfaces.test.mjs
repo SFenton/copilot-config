@@ -66,7 +66,8 @@ test('explicit integration data and fixtures may retain repository names and gen
 });
 
 test('budget contracts workflow requires manifest-backed integration on normal CI without repository coupling', () => {
-  const source = text('.github/workflows/budget-contracts.yml');
+  const source = text('.github/workflows/budget-contracts.yml')
+    .replace(/\r\n/g, '\n');
   assert.match(source, /\n\s*pull_request:\n/);
   assert.match(source, /\n\s*push:\n/);
   assert.match(source, /\n\s*workflow_call:\n/);

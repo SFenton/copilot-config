@@ -627,8 +627,10 @@ test('status and manifest-from-active-prompt expose only active hashes and creat
 
 test('automatic reader routes accept exact direct tasks and activate scoped children without inline manifests', () => {
   const home = makeTempDir('routing-home-');
-  const repo = makeTempDir('routing-repo-');
-  makeRepo(repo, 'test-project');
+  const repoTarget = makeTempDir('routing-repo-target-');
+  makeRepo(repoTarget, 'test-project');
+  const repo = `${repoTarget}-alias`;
+  fs.symlinkSync(repoTarget, repo, 'dir');
 
   const historySessionId = 'ababab12-0000-4000-8000-000000000001';
   writeSessionEvents(home, historySessionId, 'gpt-5.6-sol', 'max');
@@ -1470,8 +1472,10 @@ test('exact cheaper task pins with a bound manifest are allowed', () => {
 
 test('manifest-bound children with missing local events activate exact scope and fail closed otherwise', () => {
   const home = makeTempDir('routing-home-');
-  const repo = makeTempDir('routing-repo-');
-  makeRepo(repo, 'festival-score-tracker');
+  const repoTarget = makeTempDir('routing-repo-target-');
+  makeRepo(repoTarget, 'festival-score-tracker');
+  const repo = `${repoTarget}-alias`;
+  fs.symlinkSync(repoTarget, repo, 'dir');
   const parentSessionId = 'abcde123-0000-4000-8000-000000000003';
   writeSessionEvents(home, parentSessionId, 'gpt-5.6-sol', 'max');
   promptStartState({ sessionId: parentSessionId, prompt: 'delegate bounded worker' }, { home });

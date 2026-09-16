@@ -1858,7 +1858,9 @@ function childStateFromManifest(manifest, extras) {
     protectedSession: false,
     role: manifest.role,
     repositoryMode: manifest.repository ? 'cwd-repository-root' : 'none',
-    repositoryHash: manifest.repository ? sha256(manifest.repository) : null,
+    repositoryHash: manifest.repository
+      ? sha256(fs.realpathSync(manifest.repository))
+      : null,
     scope: manifest.scope,
     scopeHash: manifest.scopeHash,
     allowedToolCategories: active ? manifest.allowedToolCategories : [],
@@ -3908,11 +3910,27 @@ function resolvedStateRepositoryRoot(state, payload) {
   }
 }
 
+function canonicalPathForScope(candidate) {
+  const unresolved = path.resolve(candidate);
+  const missing = [];
+  let current = unresolved;
+  while (true) {
+    if (fs.lstatSync(current, { throwIfNoEntry: false })) {
+      return path.join(fs.realpathSync(current), ...missing);
+    }
+    const parent = path.dirname(current);
+    if (parent === current) return unresolved;
+    missing.unshift(path.basename(current));
+    current = parent;
+  }
+}
+
 function pathAllowedForState(candidate, payload, state, prefixes = state.scope) {
   const cwd = payload.cwd ?? process.cwd();
-  const absolute = path.isAbsolute(candidate)
+  const resolved = path.isAbsolute(candidate)
     ? path.normalize(candidate)
     : path.resolve(cwd, candidate);
+  const absolute = canonicalPathForScope(resolved);
   const repositoryRoot = resolvedStateRepositoryRoot(state, payload);
   if (repositoryRoot) {
     const relativeToRepo = path.relative(repositoryRoot, absolute);
@@ -3932,7 +3950,8 @@ function pathAllowedForState(candidate, payload, state, prefixes = state.scope) 
     });
   }
   if (prefixes.length === 0) return true;
-  return prefixes.some(prefix => absolute.startsWith(path.resolve(cwd, prefix)));
+  return prefixes.some(prefix =>
+    absolute.startsWith(canonicalPathForScope(path.resolve(cwd, prefix))));
 }
 
 function callFitsPathConstraints(call, payload, prefixes) {
