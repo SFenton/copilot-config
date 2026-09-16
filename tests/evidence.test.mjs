@@ -110,6 +110,23 @@ test('repository discovery sees the allowed full tree, returns complete units, a
   assert.notEqual(changed.results[0].id, found.results[0].id);
 });
 
+test('repository discovery falls back deterministically when rg is unavailable', async t => {
+  const { repo, cache, policy } = fixture(t);
+  const source = new RepositoryEvidence(repo, policy, cache, {
+    rgExec() {
+      const error = new Error('spawnSync rg ENOENT');
+      error.code = 'ENOENT';
+      throw error;
+    },
+  });
+  const found = await source.discover('guarded');
+  assert.equal(found.searchBackend, 'javascript-fixed-string-fallback');
+  assert.deepEqual(found.warnings, ['rg-unavailable-fixed-string-fallback']);
+  assert.equal(found.results[0].path, 'src/guard.ts');
+  const id = found.results[0].units[0]?.id ?? found.results[0].id;
+  assert.match(source.read(id).content, /guarded/);
+});
+
 test('symlink escapes are rejected before repository content search', async t => {
   const { root, repo, cache, policy } = fixture(t);
   const outside = path.join(root, 'outside.ts');

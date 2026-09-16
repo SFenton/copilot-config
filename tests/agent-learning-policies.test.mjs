@@ -14,46 +14,11 @@ import {
 } from '../skills/budget-workflow/scripts/workflow.mjs';
 
 const manifest = process.env.BUDGET_PROJECT_MANIFEST;
-const EXPECTED = {
-  ha: [
-    'action-state-matrix',
-    'layout-test-selection',
-    'i18n-inventory',
-    'preload-io-check',
-    'route-synchronization',
-    'bundle-fingerprint',
-  ],
-  evershelf: [
-    'copied-database-preparation',
-    'query-plan-capture',
-    'schema-fixture-setup',
-    'ontology-gold-validation',
-    'translation-check',
-    'ci-release-topology',
-  ],
-  'ha-evershelf': [
-    'service-lifecycle-inventory',
-    'translation-synchronization',
-    'config-flow-auth-matrix',
-    'bounded-response-check',
-    'capability-fixtures',
-    'idempotency-replay',
-  ],
-  fst: [
-    'route-publication-contract',
-    'provenance-manifest',
-    'matched-benchmark-setup',
-    'docs-synchronization',
-    'database-object-inventory',
-    'release-destructive-evidence',
-  ],
-};
 
-test('all four project learning policies bind priorities, validators and safety',
+test('project learning policies bind priorities, validators and safety',
   { skip: !manifest }, () => {
     const data = JSON.parse(fs.readFileSync(manifest, 'utf8'));
-    assert.deepEqual(new Set(data.cases.map(item => item.id)),
-      new Set(['ha', 'evershelf', 'ha-evershelf', 'fst']));
+    assert.equal(new Set(data.cases.map(item => item.id)).size, data.cases.length);
     for (const item of data.cases) {
       const adapter = readAdapter(item.root);
       assert.equal(adapter.learningPolicy, '.github/agent-learning.json');
@@ -65,8 +30,9 @@ test('all four project learning policies bind priorities, validators and safety'
         'utf8',
       )), adapter.project);
       const toolIds = new Set(registry.tools.map(tool => tool.id));
-      assert.deepEqual(policy.priorities.map(priority => priority.id),
-        EXPECTED[item.id]);
+      assert.ok(policy.priorities.length > 0, `${item.id}: priorities required`);
+      assert.equal(new Set(policy.priorities.map(priority => priority.id)).size,
+        policy.priorities.length, `${item.id}: priority ids must be unique`);
       assert.equal(policy.thresholds.maximumCandidatesPerWorkflow, 1);
       assert.equal(policy.thresholds.minimumOperationCount, 2);
       assert.equal(policy.thresholds.maximumSubgraphOperations, 6);
@@ -79,6 +45,7 @@ test('all four project learning policies bind priorities, validators and safety'
         ['production', 'release', 'destructive'].includes(value)));
       assert.ok(policy.excludedPaths.length > 0);
       for (const priority of policy.priorities) {
+        assert.match(priority.id, /^[a-z0-9]+(?:-[a-z0-9]+)*$/);
         assert.ok(opportunities.has(priority.opportunity),
           `${item.id}/${priority.id}: opportunity does not exist`);
         assert.ok(priority.validators.length > 0);

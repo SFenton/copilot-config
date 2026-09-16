@@ -4,6 +4,10 @@ import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { readAdapter } from '../skills/budget-workflow/scripts/budget.mjs';
 import {
+  loadProjectManifest,
+  repositoryLocalPhaseChecks,
+} from '../scripts/project-manifest.mjs';
+import {
   executeOpportunityPhase,
   opportunityPlan,
   readOpportunityPolicy,
@@ -17,37 +21,15 @@ const manifest = process.env.BUDGET_PROJECT_MANIFEST;
 test('repository-local no-side-effect project drivers execute with zero model authorization', {
   skip: !manifest,
 }, () => {
-  const projects = new Map(JSON.parse(fs.readFileSync(manifest, 'utf8')).cases
+  const manifestData = loadProjectManifest(manifest);
+  const projects = new Map(manifestData.cases
     .map(item => [item.id, item.root]));
-  const cases = [
-    {
-      project: 'ha-evershelf',
-      opportunity: 'release',
-      phase: 'validate-release-metadata',
-    },
-    {
-      project: 'fst',
-      opportunity: 'publication',
-      phase: 'preflight-publication',
-    },
-    {
-      project: 'fst',
-      opportunity: 'provenance',
-      phase: 'preflight-provenance',
-    },
-    {
-      project: 'fst',
-      opportunity: 'release-destruction',
-      variant: 'application-release',
-      phase: 'preflight-application-release',
-    },
-    {
-      project: 'fst',
-      opportunity: 'release-destruction',
-      variant: 'destructive-maintenance',
-      phase: 'preflight-destructive-maintenance',
-    },
-  ];
+  const cases = manifestData.cases.flatMap(project =>
+    repositoryLocalPhaseChecks(project).map(check => ({
+      project: project.id,
+      ...check,
+    })));
+  assert.ok(cases.length > 0, 'Manifest must declare at least one repositoryLocalPhaseChecks entry');
   for (const item of cases) {
     const root = projects.get(item.project);
     const adapter = readAdapter(root);

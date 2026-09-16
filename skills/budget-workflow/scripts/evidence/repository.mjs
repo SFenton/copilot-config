@@ -22,6 +22,19 @@ const excludedSegments = new Set(['.git', 'node_modules', 'dist', 'bin', 'obj', 
 const languages = new Map();
 let initialization;
 
+function rgUnavailable(error) {
+  return error?.code === 'ENOENT' ||
+    error?.cause?.code === 'ENOENT' ||
+    /spawnSync rg ENOENT/.test(error?.message ?? '');
+}
+
+function fileMatchesTerms(root, file, terms) {
+  const text = readText(contained(root, file));
+  if (text.includes('\0')) return false;
+  const lower = text.toLowerCase();
+  return terms.some(term => lower.includes(term.toLowerCase()));
+}
+
 export function eligible(file, policy) {
   const pieces = file.split('/');
   if (pieces.some(part => excludedSegments.has(part) || part.startsWith('.env'))) return false;
@@ -103,12 +116,13 @@ export async function sourceUnits(text, extension) {
 }
 
 export class RepositoryEvidence {
-  constructor(root, policy, cacheDir) {
+  constructor(root, policy, cacheDir, options = {}) {
     this.root = fs.realpathSync(root);
     if (!policy || !Array.isArray(policy.allowPaths) || !policy.allowPaths.length) throw new Error('Explicit repository content allowPaths required');
     if (policy.allowPaths.some(p => typeof p !== 'string' || path.isAbsolute(p) || p.split('/').includes('..'))) throw new Error('Invalid repository allowPaths');
     this.policy = policy;
     this.cacheDir = cacheDir;
+    this.rgExec = options.rgExec ?? execFileSync;
     this.records = new Map();
     this.opened = new Set();
   }
@@ -162,19 +176,30 @@ export class RepositoryEvidence {
       const score = terms.filter(term => file.toLowerCase().includes(term.toLowerCase())).length * 4;
       if (score) scored.set(file, { score, matches: [] });
     }
+    let searchBackend = 'rg';
     for (let start = 0; start < files.length; start += 250) {
       const selected = files.slice(start, start + 250);
       if (!selected.length) continue;
       const args = ['--files-with-matches', '-0', '-i', '-F'];
       for (const term of terms) args.push('-e', term);
       args.push('--', ...selected);
-      let output;
-      try { output = execFileSync('rg', args, { cwd: this.root, encoding: 'utf8', maxBuffer: 8000000, timeout: 15000 }); }
-      catch (error) {
-        if (error.status === 1) output = '';
-        else throw error;
+      let matches;
+      try {
+        matches = this.rgExec('rg', args, {
+          cwd: this.root,
+          encoding: 'utf8',
+          maxBuffer: 8000000,
+          timeout: 15000,
+        }).split('\0').filter(Boolean);
       }
-      for (const file of output.split('\0').filter(Boolean)) {
+      catch (error) {
+        if (error.status === 1) matches = [];
+        else if (rgUnavailable(error)) {
+          searchBackend = 'javascript-fixed-string-fallback';
+          matches = selected.filter(file => fileMatchesTerms(this.root, file, terms));
+        } else throw error;
+      }
+      for (const file of matches) {
         const old = scored.get(file) ?? { score: 0, matches: [] };
         old.score += 1;
         scored.set(file, old);
@@ -210,7 +235,10 @@ export class RepositoryEvidence {
     }
     return { scope: 'repository', searchedFiles: files.length, skippedLarge,
       matchingFiles: scored.size, rankedFiles: candidates.length, contentPolicy: this.policy.allowPaths,
-      results, absenceIsNotProof: true };
+      results, absenceIsNotProof: true, searchBackend,
+      warnings: searchBackend === 'rg'
+        ? []
+        : ['rg-unavailable-fixed-string-fallback'] };
   }
 
   read(id, options = {}) {

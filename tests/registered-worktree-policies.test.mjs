@@ -8,6 +8,7 @@ import { makeScratch } from './helpers/scratch.mjs';
 import {
   scanRegisteredWorktrees,
 } from '../scripts/scan-registered-worktree-policies.mjs';
+import { loadProjectManifest } from '../scripts/project-manifest.mjs';
 
 const projectManifest = process.env.BUDGET_PROJECT_MANIFEST;
 
@@ -318,9 +319,47 @@ function initFixture(t, { rootName = null } = {}) {
   };
 }
 
+function notApplicable(reason, absentPaths) {
+  return {
+    applicable: false,
+    reason,
+    ...(absentPaths ? { absentPaths } : {}),
+  };
+}
+
+function fixtureConformance(root, overrides = {}) {
+  const hasOpportunityPolicy = fs.existsSync(path.join(root, '.github/agent-opportunities.json'));
+  const hasInstructionContract = fs.existsSync(path.join(root, '.github/reference/fixture-contract.md'));
+  const hasReleaseSkill = fs.existsSync(path.join(root, '.github/skills/release-dashboard/SKILL.md'));
+  return {
+    version: 2,
+    surfaces: {
+      'expected-opportunity-ids': hasOpportunityPolicy
+        ? { applicable: true, ids: ['release'] }
+        : notApplicable('fixture repository has no routed opportunity inventory'),
+      'instruction-contract': hasInstructionContract
+        ? { applicable: true, path: '.github/reference/fixture-contract.md' }
+        : notApplicable('fixture repository has no relocated instruction contract'),
+      'release-skill': hasReleaseSkill
+        ? { applicable: true, path: '.github/skills/release-dashboard/SKILL.md' }
+        : notApplicable('fixture repository has no release dashboard skill'),
+      'repository-local-phase-checks': notApplicable(
+        'fixture repository has no deterministic none-side-effect phase probes'),
+      'compatibility-checks': notApplicable(
+        'fixture repository has no compatibility contract artifact'),
+      ...overrides,
+    },
+  };
+}
+
 function writeManifest(root, name, cases) {
   const manifest = path.join(root, name);
-  fs.writeFileSync(manifest, JSON.stringify({ cases }, null, 2));
+  fs.writeFileSync(manifest, JSON.stringify({
+    cases: cases.map(item => ({
+      conformance: fixtureConformance(item.root ?? root),
+      ...item,
+    })),
+  }, null, 2));
   return manifest;
 }
 
@@ -383,6 +422,7 @@ function writePolicyBundle(root, {
   hook = null,
 } = {}) {
   write(root, '.github/copilot-instructions.md', 'Fixture instructions.\n');
+  write(root, '.github/reference/fixture-contract.md', '# Fixture contract\n');
   write(root, '.github/skills/fixture-budget-workflow/SKILL.md', '# Fixture budget workflow\n');
   write(root, '.github/agent-learning.json', '{}\n');
   write(root, '.github/agent-opportunities.json', `${JSON.stringify(OPPORTUNITY_POLICY, null, 2)}\n`);
@@ -429,8 +469,14 @@ test('registered worktree scan CLI accepts manifest files without a .json suffix
   const manifest = writeManifest(fixture.root, 'project manifest', [{
     id: 'fixture',
     root: fixture.root,
-    instructionBaselineRef: 'HEAD',
-    instructionMigrationRef: 'HEAD',
+    conformance: fixtureConformance(fixture.root, {
+      'instruction-contract': {
+        applicable: true,
+        path: '.github/reference/fixture-contract.md',
+        baselineRef: 'HEAD',
+        migrationRef: 'HEAD',
+      },
+    }),
   }]);
 
   const reportPath = path.join(fixture.root, 'worktree-report.json');
@@ -497,7 +543,13 @@ test('registered worktree scan reports a nonexistent baseline ref with determini
   const manifest = writeManifest(fixture.root, 'manifest.json', [{
     id: 'fixture',
     root: fixture.root,
-    instructionBaselineRef: 'missing-baseline-ref',
+    conformance: fixtureConformance(fixture.root, {
+      'instruction-contract': {
+        applicable: true,
+        path: '.github/reference/fixture-contract.md',
+        baselineRef: 'missing-baseline-ref',
+      },
+    }),
   }]);
 
   const report = scanRegisteredWorktrees({ inputs: [manifest] });
@@ -507,7 +559,7 @@ test('registered worktree scan reports a nonexistent baseline ref with determini
     root: fixture.root,
     case: 'fixture',
     project: 'fixture',
-    ref: 'instructionBaselineRef',
+    ref: 'instructionContract.baselineRef',
     value: 'missing-baseline-ref',
     reasons: ['invalid-manifest-ref'],
   }]);
@@ -524,7 +576,13 @@ test('registered worktree scan reports a nonexistent migration ref and exits non
   const manifest = writeManifest(fixture.root, 'manifest.json', [{
     id: 'fixture',
     root: fixture.root,
-    instructionMigrationRef: 'missing-migration-ref',
+    conformance: fixtureConformance(fixture.root, {
+      'instruction-contract': {
+        applicable: true,
+        path: '.github/reference/fixture-contract.md',
+        migrationRef: 'missing-migration-ref',
+      },
+    }),
   }]);
   const reportPath = path.join(fixture.root, 'worktree-report.json');
   const script = path.resolve(
@@ -546,7 +604,7 @@ test('registered worktree scan reports a nonexistent migration ref and exits non
       root: fixture.root,
       case: 'fixture',
       project: 'fixture',
-      ref: 'instructionMigrationRef',
+      ref: 'instructionContract.migrationRef',
       value: 'missing-migration-ref',
       reasons: ['invalid-manifest-ref'],
     }],
@@ -591,7 +649,13 @@ test('registered worktree scan rejects malformed optional manifest refs', t => {
   const manifest = writeManifest(fixture.root, 'manifest.json', [{
     id: 'fixture',
     root: fixture.root,
-    instructionBaselineRef: 'not a valid ref',
+    conformance: fixtureConformance(fixture.root, {
+      'instruction-contract': {
+        applicable: true,
+        path: '.github/reference/fixture-contract.md',
+        baselineRef: 'not a valid ref',
+      },
+    }),
   }]);
 
   const report = scanRegisteredWorktrees({ inputs: [manifest] });
@@ -601,7 +665,7 @@ test('registered worktree scan rejects malformed optional manifest refs', t => {
     root: fixture.root,
     case: 'fixture',
     project: 'fixture',
-    ref: 'instructionBaselineRef',
+    ref: 'instructionContract.baselineRef',
     value: 'not a valid ref',
     reasons: ['invalid-manifest-ref'],
   }]);
@@ -624,7 +688,11 @@ test('registered worktree scan catches stale hook and manual release skill from 
   });
   const manifest = path.join(fixture.root, 'manifest.json');
   fs.writeFileSync(manifest, JSON.stringify({
-    cases: [{ id: 'fixture', root: fixture.root }],
+    cases: [{
+      id: 'fixture',
+      root: fixture.root,
+      conformance: fixtureConformance(fixture.root),
+    }],
   }, null, 2));
 
   const report = scanRegisteredWorktrees({ inputs: [manifest] });
@@ -699,6 +767,7 @@ test('registered worktree scan catches incomplete root adapters and stale machin
 test('registered worktree scan rejects stale repo-local hooks, unsafe skill authorization, stale pins, and incomplete adapters across project manifests', {
   skip: !projectManifest,
 }, () => {
+  const manifest = loadProjectManifest(projectManifest);
   const report = scanRegisteredWorktrees({ inputs: [projectManifest] });
   assert.equal(report.ok, true, JSON.stringify(report.failures, null, 2));
   assert.equal(report.failingHookCount, 0);
@@ -710,6 +779,6 @@ test('registered worktree scan rejects stale repo-local hooks, unsafe skill auth
   assert.equal(report.staleReviewerCount, 0);
   assert.equal(report.staleExceptionCount, 0);
   assert.equal(report.failingRootAdapterCount, 0);
-  assert.equal(report.rootCount, 4);
-  assert.ok(report.worktreeCount > 4);
+  assert.equal(report.rootCount, manifest.cases.length);
+  assert.ok(report.worktreeCount >= report.rootCount);
 });

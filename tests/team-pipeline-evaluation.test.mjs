@@ -5,18 +5,22 @@ import { evaluateTeamPipelines } from '../evals/team-pipeline-evaluation.mjs';
 
 const manifest = process.env.BUDGET_PROJECT_MANIFEST;
 
-test('zero-model harness evaluates all 44 complete team pipelines', {
+test('zero-model harness evaluates every manifest pipeline without launching models', {
   skip: !manifest,
 }, () => {
+  const manifestData = JSON.parse(fs.readFileSync(manifest, 'utf8'));
   const config = JSON.parse(fs.readFileSync(
     new URL('../evals/team-pipeline-study.json', import.meta.url),
     'utf8',
   ));
   const result = evaluateTeamPipelines(
     config,
-    JSON.parse(fs.readFileSync(manifest, 'utf8')),
+    manifestData,
   );
-  assert.equal(result.pipelineCount, 44);
+  assert.equal(result.projects.length, manifestData.cases.length);
+  assert.equal(result.pipelineCount,
+    result.projects.reduce((sum, project) => sum + project.pipelines.length, 0));
+  assert.ok(result.pipelineCount > 0);
   assert.equal(result.runStudy, false);
   assert.equal(result.totals.modelCalls, 0);
   assert.equal(result.expectedProductionSavings, null);

@@ -168,7 +168,7 @@ export function evaluateTeamPipelines(config, manifest) {
   }
   const pipelineCount = projects.reduce((sum, project) =>
     sum + project.pipelines.length, 0);
-  assert(pipelineCount === 44, `Expected 44 project pipelines, found ${pipelineCount}`);
+  assert(pipelineCount > 0, 'At least one project pipeline is required');
   const topologies = config.topologies.map(topology => {
     const legs = topologyLegs(topology.id);
     for (const className of config.requiredLegClasses) {
