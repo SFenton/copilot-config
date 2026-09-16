@@ -1,6 +1,6 @@
 ---
 name: budget-workflow
-description: Cost-aware engineering with one owner, deterministic evidence tools, repository/external/hybrid research and project-owned implementation gates. No automatic reader agents or tandem.
+description: Cost-aware engineering with one owner, deterministic evidence tools, repository/external/hybrid/history packet-first research and project-owned implementation gates. No automatic reader agents or tandem.
 ---
 
 # Budget workflow
@@ -13,6 +13,10 @@ safety contracts win.
 1. Read required root instructions and `.github/agent-budget.json` when present.
    Without an adapter, follow native repository rules directly. Do not invent
    missing safety gates or use evidence tools to bypass content exclusions.
+   An optional sparse override at `.github/budget-contract.override.v1.json`
+   may add stricter gates or undiscoverable bindings, but it cannot widen
+   authority, remove native repository rules, or enable release/destructive
+   work.
 2. For <=5 straightforward reads/edits/commands, act directly. The setup cost of
    a broker is not justified by a single symbol lookup.
    For a substantive retained-owner project task, run
@@ -23,20 +27,46 @@ safety contracts win.
    pipeline in order. Deterministic routing, evidence collection, registered
    tools, and receipts launch no model. The plan is advisory routing evidence,
    not repository-apply or side-effect authority. Known patterns use the exact
-   project medium coordinator/reviewer. Research, specification, and
-   risk-triggered frontier review require a named, evidence-bound trigger
-   receipt; task terminology or consequence alone is never a stronger-model
-   trigger.
+   project medium coordinator/reviewer. This skill is Markdown-first routing
+   guidance plus non-blocking observability, not a universal tool-blocking
+   hook. Route by explicit role, not by the ambient interactive model:
+   frontier models handle research reasoning, architecture, adjudication, and
+   final intent coverage from frozen evidence only; repository/history/web
+   evidence collection, coding, tests, review, and release preparation or
+   execution should be delegated to deterministic tools or exact cheaper
+   non-Claude roles whenever available. Always pin `model`,
+   `reasoning_effort`, `context_tier`, and `agent_type` on every `task`
+   dispatch. Default exact roles are `gpt-5.4` medium/default coordinator and
+   reviewer, project-qualified workers on their evaluated pins, and
+   history/diagnostics/readers on mini/default profiles where supported.
+   Availability fallback is allowed: if the required cheaper worker/tool is
+   unavailable, the current owner may proceed directly, preserve the project's
+   safety/release gates, and report the routing exception plus any likely
+   avoidable credits supported by evidence. Do not add persistent Claude
+   task/session pins.
 3. For research, separate **evidence location** from **risk**:
-   repository-only, external-only, or hybrid. Unknown repository relevance needs
+   repository-only, external-only, hybrid, or history. Unknown repository relevance needs
    a bounded local probe; one failed search does not establish absence.
    Use `scripts/evidence/research.mjs plan TASK.json ROOT|-`. Load only the
    matching guide: [repository](modes/repository.md),
-   [external](modes/external.md), or [hybrid](modes/hybrid.md).
+   [external](modes/external.md), [hybrid](modes/hybrid.md), or
+   [history](modes/history.md).
 4. Default to `init` plus `evidence` operations in the **current owner's**
-   session. This uses deterministic code, not a second model. `run` is an
-   explicit neutral single-owner research launch, useful for external-only
-   context isolation or controlled comparisons, not a mandatory handoff.
+   session. This uses deterministic code, not a second model. Freeze packets
+   before any model reasoning. Use `history.mjs` for
+   session-store planning/packetization; frontier models never perform
+   first-pass history reading.
+   Prompt-start routing may synthesize exact automatic reader dispatches for
+   named-session history checks, broader history audits, swap/process
+   diagnostics, repository inspection, read-only external evidence, explicit
+   tandem evidence curation, and Copilot CLI documentation lookups. Safe
+   control artifacts are written only through
+   `write-control-artifact-current` in the current session `files/` directory.
+   Budget/tandem/hooks/cost/history meta-audits stay native: one `gpt-5.4`
+   medium/default owner plus deterministic evidence, never automatic tandem.
+   Deterministic packets, manifests, and receipts remain useful optimization
+   helpers rather than prerequisites for ordinary repository work unless a
+   project-specific safety or release contract explicitly requires them.
 5. Use complete small files and relevant syntax units in larger files; open
    known paths/symbols directly. Follow adjacent code only if it can change
    the answer. Stop when requested claims are supported and uncertainties
@@ -51,8 +81,10 @@ safety contracts win.
    Use existing tests; retain failures and revise from evidence, not speculation.
    Escalate a material unresolved reasoning gap once; report a persistent block.
 8. Count all model legs, retries, grading, cache categories and failures.
-   Credits, not token counts alone, determine cost. A soft cap can overshoot;
-   use one shared admission ledger and never silently increase it.
+   Credits, not token counts alone, determine cost. Distinguish deterministic
+   evidence, cheap curation/history, Sol research, Astra tandem research,
+   adjudication, and downstream implementation. A soft cap can overshoot; use
+   one shared admission ledger and never silently increase it.
 
 ## Continuous improvement
 
@@ -143,10 +175,9 @@ remain disabled. This is not research delegation. The staging lane is:
 
 The generic provisional worker is MAI Code 1.1 Flash at medium effort/default
 context. Repositories with an opportunity policy must use that opportunity's
-exact provisionally evaluated worker instead: React uses GPT-5 mini, EverShelf
-uses Gemini 3.7 Flash, and FST uses MAI Code 1.1 Flash. HA-EverShelf retains a
-Gemini 3.7 policy pin but its zero valid cases disable launch. Do not silently
-substitute another worker. Research, architecture, debugging,
+exact effective-contract `cheap-worker` role instead. Runtime policy resolves
+the worker from repository-qualified evidence, and zero valid cases disable the
+launch. Do not silently substitute another worker. Research, architecture, debugging,
 security, semantic docs,
 live-system behavior, release/destructive work, dirty targets, incomplete
 evidence, project risk-term matches, and work without deterministic acceptance
@@ -167,20 +198,20 @@ Version 3 `releaseMachine` files execute only registered deterministic tools
 after explicit operator authorization with evidence-bound receipts,
 predefined rollback, post-rollback verification and unconditional cleanup.
 They must remain disabled while any required external or production driver is
-disabled. The project medium reviewer cannot authorize side effects. Max/long
-exception review is allowed only after a named project trigger receipt, such as
-failed rollback. Models never execute releases.
+disabled. The project medium reviewer is the exact `gpt-5.4` medium/default
+profile and cannot authorize side effects. Sol remains research-only behind a
+named trigger receipt such as failed rollback. Models never execute releases.
 
 ## Model policy
 
 The evidence planner supplies profiles for an **explicit role**, not a global
 model default. The interactive model may be Sol, HydraFusion, or another model;
 identity never bypasses deterministic routing or exact project pins. A current
-model may fill a role only when it exactly matches the role's qualified profile.
-Otherwise it may orchestrate/read but gains no semantic, repository-apply,
-live, release, external, or destructive authority. Sol max/long is never
-resident implementation ownership; it is conditional critical review behind a
-concrete trigger receipt.
+model may fill a role only when it exactly matches that role's qualified
+profile. Otherwise it may orchestrate only and gains no semantic,
+repository-apply, live, release, external, or destructive authority. Sol
+max/long is no longer a resident implementation or review profile, and Claude
+persistent pins are not part of the default route.
 
 HydraFusion may remain the user-selected coordinator; standalone CLI availability
 differs from session transport. Report an availability failure rather than

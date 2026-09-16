@@ -17,8 +17,9 @@ scanner failed on real source, so PHP deliberately uses its native JS parser.
 - `budget-workflow`: deterministic-first routing, exact evidence, project-tuned
   medium coordination, one-revision bounded workers, explicit trust tiers, and
   deterministic release gates.
-- `tandem-research`: preserved Sol/Opus max/long-context research/adjudication
-  protocol, **explicit invocation only**. Follow-on implementation returns to
+- `tandem-research`: explicit Sol max/default plus Astra medium/default
+  packet-only research/adjudication protocol, **explicit invocation only**.
+  Follow-on implementation returns to
   the hierarchical project route; complexity alone does not trigger tandem or
   max-resident implementation.
 
@@ -40,11 +41,11 @@ automatic model-default or full-research-equivalence promotion.
 ```bash
 node scripts/install.mjs
 # If replacing links from a known previous checkout, explicitly name that root:
-node scripts/install.mjs "$HOME/repos/copilot-config"
+node scripts/install.mjs /absolute/path/to/copilot-config
 ```
 
-The installer links both skills and installs the native large-read and
-continuous-improvement lifecycle hooks plus
+The installer links both skills and installs the Markdown-first routing
+lifecycle hook, the sanitized observability hooks, and
 `instructions/budget-workflow.instructions.md` as regular files into
 `$COPILOT_HOME` or `~/.copilot`. It refuses real-file/directory collisions and
 unknown symlinks. It writes a rollback receipt before changes. Existing
@@ -63,40 +64,53 @@ valid policy bundle from an already-fetched local default-branch ref without
 fetching or modifying the worktree. Its result is advisory routing evidence
 only and grants no repository-apply, live, release, destructive, production, or
 other side-effect authority.
+An optional sparse override at
+`.github/budget-contract.override.v1.json` may add stricter gates or
+undiscoverable bindings, but it cannot widen model authority, remove native
+repository gates, or enable release/destructive work.
 
 This is default instruction-based behavior, not an installed `/plugin` package,
-an automatic interactive model switch or a hard billing/security interceptor.
-Start a fresh session to load the new instructions, skill descriptions and hooks.
-Existing sessions may retain old context. To restore the previous installation:
+an automatic interactive model switch, or a hard billing/security interceptor.
+Start a fresh CLI process/session after installing, changing hook registrations,
+or manually editing the routing config. Existing processes may retain earlier
+instruction text, hook registrations, or in-memory routing state. To restore
+the previous installation:
 
 ```bash
 node scripts/install.mjs --rollback /absolute/path/to/budget-install-TIMESTAMP.json
 ```
 
 The installer writes regular hook JSON; skill directories remain symlinked.
-Runtime enforcement is not certified across launch contexts. A minimal
-standalone Git fixture with an absolute command hook denied the large read, but
-installed user/worktree registrations did not consistently fire, including
-tests with normal permissions. Pre-approved runs also passed the read.
-Project registrations are supplied for compatible runtimes, not as a universal
-guard. The deterministic packet command enforces its own limits independently.
-When invoked, the hook denies unbounded `view`/`Read` operations on files over 350 lines.
-Exact ranges of at most 350 lines and required instruction contracts pass.
-`[start,-1]` is not bounded. It recommends direct ranges before delegation.
-This is a spend guardrail, not a security barrier: shell reads, disabled hooks,
-runtime timeouts, or alternative tools can bypass it. Do not deliberately
-bypass it; use the source ranges needed for real reasoning and edits.
-The hook returns `{}` on allowed reads so normal permissions remain in force.
+Installed budget routing no longer registers a universal `preToolUse` hook.
+Routing is Markdown-first guidance plus optional helper commands and sanitized
+observability. It must never prevent starting/resuming a session, invoking a
+skill, using explicit operator tools, delegating work, or calling
+`task_complete`.
 
-The continuous-improvement hook listens to `postToolUse`,
-`postToolUseFailure`, `subagentStop`, `agentStop` and `sessionEnd`. It writes
-user-local `0600` event shards under `$COPILOT_HOME/learning` containing only
-stable trace/receipt hashes, normalized operation shapes, path categories,
-result classes, timings and accounting metadata. It never persists raw
-prompts, responses, source, tool results, commands, credentials or environment
-values, and it never modifies a successful tool result. General-purpose agent
-work is covered by actual parent tool events, receipt lineage and transcript
-file metadata hashes; `subagentStop` is optional enrichment.
+Frontier models are reserved for research reasoning, architecture,
+adjudication, and final intent coverage from frozen evidence. Repository,
+history, web, coding, test, review, and release-preparation work should be
+delegated to deterministic tools or exact cheaper non-Claude roles whenever
+they are available. Every `task` dispatch should pin `model`,
+`reasoning_effort`, `context_tier`, and `agent_type`. The default exact roles
+are `gpt-5.4` medium/default coordinator and reviewer, project-qualified
+workers on their evaluated pins, history/diagnostics/readers on mini/default
+profiles where supported, and explicit tandem on Sol max/default plus Astra
+medium/default. If the preferred cheaper worker/tool is unavailable, the
+current owner may proceed directly, keep the project's safety and release gates
+intact, and report the routing exception plus any likely avoidable credits that
+are actually supported by evidence. Persistent Claude pins are not part of the
+default route.
+
+The installed routing hook keeps only `userPromptSubmitted` and `sessionEnd`.
+It starts a privacy-safe workflow identity, clears routing state, and writes a
+non-blocking session-end compliance summary. The separate observability hook
+keeps `postToolUse`, `postToolUseFailure`, `subagentStop`, and `agentStop`.
+Stored data is limited to hashes, byte counts, normalized operation shapes,
+tool/path/risk classes, delegation/compliance counts, receipt lineage, and
+reconciled usage. It never stores raw prompts, responses, source text, command
+text, tool arguments, repository paths beyond existing hashed policy identity,
+credentials, or environment values. Logging failures never block session end.
 
 Projects opt in with `.github/agent-learning.json`. Existing branches and
 worktrees that predate that file use one valid policy bundle from a local
@@ -124,6 +138,25 @@ triggers take precedence; unknown and disabled IDs are rejected. Persisted
 events record only that an operator/coordinator supplied the classification and
 a stable hash, never raw classification text.
 
+## Copilot CLI instruction surfaces
+
+Copilot CLI can load instructions from:
+
+- `~/.copilot/copilot-instructions.md`
+- `~/.copilot/instructions/**/*.instructions.md`
+- `.github/copilot-instructions.md`
+- `.github/instructions/**/*.instructions.md`
+- `AGENTS.md`
+- skills such as `skills/*/SKILL.md`
+
+Useful built-ins while working with this setup:
+
+- `/instructions` to inspect the active instruction stack
+- `/env` for runtime/environment details
+- `/subagents` to inspect task-agent roles and availability
+- `/usage` and `/limits` for current usage and CLI limits
+- `/autopilot --max-ai-credits N` for a **soft** per-session AI credit target
+
 ## Deterministic CLI
 
 ```bash
@@ -135,12 +168,32 @@ node skills/budget-workflow/scripts/budget.mjs evaluate outcomes.json
 node skills/budget-workflow/scripts/budget.mjs estimate scenario.json
 node skills/budget-workflow/scripts/opportunities.mjs validate /path/to/project
 node skills/budget-workflow/scripts/opportunities.mjs plan /path/to/project task.json
+node skills/budget-workflow/scripts/routing-enforcement.mjs status active.json
+node skills/budget-workflow/scripts/routing-enforcement.mjs status-current active.json
+node skills/budget-workflow/scripts/routing-enforcement.mjs manifest manifest.json
+node skills/budget-workflow/scripts/routing-enforcement.mjs manifest-from-active-prompt dispatch.json
+node skills/budget-workflow/scripts/routing-enforcement.mjs write-control-artifact-current artifact.json
+node skills/budget-workflow/scripts/routing-enforcement.mjs authorize-research research.json
+node skills/budget-workflow/scripts/routing-enforcement.mjs authorize-operator override.json
 node skills/budget-workflow/scripts/continuous-improvement.mjs validate /path/to/project
 node skills/budget-workflow/scripts/continuous-improvement.mjs status /path/to/project
 node skills/budget-workflow/scripts/continuous-improvement.mjs backfill-events /path/to/project /path/to/events.jsonl
 node skills/budget-workflow/scripts/improvement-replay.mjs replay candidate.json trajectories.json
 npm test
 ```
+
+`status` is an external diagnostic for an explicit valid session ID, and
+`status-current` reports the active session binding when routing state exists.
+Automatic reader task launches are matched directly against the stored active
+route by the trusted hook envelope rather than by tool arguments. The
+`dispatch-current` CLI command is retired and now returns only a bounded
+structured compatibility error.
+`authorize-operator` is also external-only: it returns a receipt that must be
+supplied inline with each authorized tool call. Routing mode config remains a
+legacy manual observability surface; with no installed `preToolUse`
+registration it does not, by itself, enforce tool blocking. `write-control-artifact-current` writes only registered sanitized
+artifacts under the exact current session `files/` directory with atomic `0600`
+permissions.
 
 The project supplies `.github/agent-budget.json`:
 
@@ -260,11 +313,11 @@ disabled and the measurements do not establish automatic application, broad
 implementation, or research equivalence. See
 [delegation calibration](evals/delegation-results.md).
 
-Project-specific evidence provides provisional staging profiles only: React
-uses GPT-5 mini, EverShelf uses Gemini 3.7 Flash, and FST uses MAI Code 1.1
-Flash based on three cases each. HA-EverShelf's incomplete packets were
-invalidated, leaving zero valid cases and disabling its cheap-worker launch.
-`reviewed-application` has no 30-case floor, but it always requires isolated
+Project-specific evidence remains fixture and integration data only. Runtime
+policy resolves a semantic `cheap-worker` role from the effective contract for
+the selected repository opportunity, and zero valid cases disable launch with
+no silent substitution. `reviewed-application` has no 30-case floor, but it
+always requires isolated
 pre-validation, medium acceptance, separate operator apply authorization,
 identical post-validation, and exact rollback binding. Only
 `unattended-application` uses the >=30 matched held-out case gate (and >=10
@@ -324,13 +377,12 @@ savings remain `null`, the candidate pool authorizes zero calls, and
 `runStudy` remains `false`.
 
 Fail-closed cross-project regression uses `npm run test:projects` and requires
-`BUDGET_PROJECT_MANIFEST` with `cases`
-containing `id` and `root`. For relocated HA/EverShelf instruction checks, pin
-`instructionBaselineRef` to the pre-migration commit and
-`instructionMigrationRef` to the migration commit so the historical
-verbatim move remains reproducible while the live contract evolves. Keep local
-manifest paths and raw evidence outside the repository. The shared CI workflow
-checks out all four projects with the read-only `CROSS_REPO_READ_TOKEN`.
+`BUDGET_PROJECT_MANIFEST` with `cases` containing `id` and `root`. Optional
+`instructionBaselineRef` and `instructionMigrationRef` fields may pin a
+pre/post-migration commit when verifying a relocated instruction surface.
+Keep local manifest paths and raw evidence outside the repository. The shared
+CI workflow consumes an exact-ref integration manifest instead of hardcoding
+repository identifiers.
 
 `task.json`:
 
@@ -349,15 +401,17 @@ Kinds: lookup, implementation, debugging, research, test, release.
 Risk: low, medium, high, unknown. Unknown/high risk, novelty, risk terms and
 incomplete reasoning evidence escalate conservatively. Simple known commands
 require no LLM. Complete supplied-evidence extraction can use GPT-5.4 mini.
-This legacy broad-task router retains conservative Astra high research advice
-and points research to the evidence-mode planner below. Do not chain the two as
-successive model gates. Its legacy route has no automatic draft worker; the
-separately controlled provisional artifact lane is described below. Sonnet 5 is not
-qualified for standalone research decisions: the source-backed comparison
-found material gaps. See [research qualification](evals/research-qualification.md).
-These are conservative routing choices, not certified equivalence to tandem.
-HydraFusion is the coordinator preference; the route also names Sonnet 5 as an
-explicit fallback. Report a runtime availability failure before using fallback.
+This legacy broad-task router retains conservative Sol high/default research
+advice and points research to the evidence-mode planner below. It does not make
+Astra a general implicit research default. Do not chain the two as successive
+model gates. Its legacy route has no automatic draft worker; the
+separately controlled provisional artifact lane is described below. Claude
+standalone research is not qualified for default routing decisions: the
+source-backed comparison found material gaps. See
+[research qualification](evals/research-qualification.md). These are
+conservative routing choices, not certified equivalence to tandem. HydraFusion
+is the coordinator preference. Report runtime availability failures directly
+instead of introducing a persistent Claude fallback pin.
 
 `ranges.json`:
 
@@ -413,17 +467,17 @@ frontier reasoning. User-selected profiles are explicit overrides recorded by
 the runner, not implicit interactive model changes. No automatic tandem,
 cheap-reader agent or second HydraFusion layer.
 
-| New single-owner run | Default profile |
+| Legacy broad-task route outcome | Profile |
 |---|---|
-| Bounded low/medium risk, cost objective | Sol high / default context |
-| Bounded low/medium risk, speed objective | Astra low / default context |
-| High/unknown risk, novelty or project risk terms | Astra high / default context |
+| `bounded-research` | Sol high / default context |
+| `frontier-research` | Sol high / default context |
 
-These are pragmatic operating defaults, not model-quality certification. The
+These are pragmatic legacy-route defaults, not model-quality certification. The
 [mode calibration](evals/mode-results.md) retained all six selected candidate
 answers above its floor and reduced research credits, but did not reduce total
 tokens. Explicit evaluation pins are not proof that a high-risk project class
-has been promoted to the cheaper default.
+has been promoted to the cheaper default. Astra remains explicit-only for the
+tandem secondary role and explicit user-selected intent-acceptance.
 
 Adapters add `evidencePolicy.always`, `phases.research/implementation/validation/
 release`, and `content.allowPaths/denyPaths/maxFileBytes`. Research context stays

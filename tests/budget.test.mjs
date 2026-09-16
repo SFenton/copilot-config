@@ -23,7 +23,7 @@ function fixture(t) {
 test('routing avoids research and delegation for deterministic low-risk work', () => {
   assert.equal(route({ ...task, deterministic: true }, adapter).tier, 'deterministic');
   assert.equal(route(task, adapter).model, 'gpt-5.4-mini');
-  assert.equal(route({ ...task, kind: 'implementation' }, adapter).model, 'hydrafusion');
+  assert.equal(route({ ...task, kind: 'implementation' }, adapter).model, 'gpt-5.4');
 });
 
 test('novel, unknown, incomplete reasoning and domain risks escalate before cheap flags', () => {
@@ -34,7 +34,7 @@ test('novel, unknown, incomplete reasoning and domain risks escalate before chea
   ]) assert.equal(route({ ...task, ...change }, adapter).tier, 'frontier-research');
   assert.equal(route({ ...task, kind: 'research' }, adapter).tier, 'bounded-research');
   const research = route({ ...task, kind: 'research' }, adapter);
-  assert.equal(research.model, 'gpt-6-astra');
+  assert.equal(research.model, 'gpt-5.6-sol');
   assert.equal(research.effort, 'high');
   assert.equal(research.draftModel, null);
   assert.match(research.researchEntryPoint, /evidence\/research.mjs/);

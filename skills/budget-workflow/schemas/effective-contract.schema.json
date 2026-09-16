@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/copilot-config/effective-contract.schema.json",
+  "title": "Effective Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "kind",
+    "project",
+    "repository",
+    "provenance",
+    "owner",
+    "capabilities",
+    "constraints",
+    "unresolved",
+    "contractHash"
+  ],
+  "properties": {
+    "version": { "const": 1 },
+    "kind": { "const": "effective-contract" },
+    "project": { "type": "string", "minLength": 1 },
+    "repository": { "type": ["string", "null"] },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "adapterPath", "sparseOverride"],
+      "properties": {
+        "source": {
+          "enum": ["zero-config", "repository-contract"]
+        },
+        "adapterPath": { "type": ["string", "null"] },
+        "sparseOverride": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["relativePath", "sha256"],
+          "properties": {
+            "relativePath": { "type": "string", "minLength": 1 },
+            "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+          }
+        }
+      }
+    },
+    "owner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "instructions", "gates"],
+      "properties": {
+        "mode": {
+          "enum": ["native-rules", "repository-contract"]
+        },
+        "instructions": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "gates": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["delegatedBoundedWork", "release"],
+      "properties": {
+        "delegatedBoundedWork": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "reason"],
+          "properties": {
+            "status": {
+              "enum": ["configured", "unresolved"]
+            },
+            "reason": { "type": ["string", "null"] }
+          }
+        },
+        "release": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "reason",
+            "machineVersion",
+            "opportunity",
+            "operatorAuthorizationRequired"
+          ],
+          "properties": {
+            "status": {
+              "enum": ["configured", "disabled"]
+            },
+            "reason": { "type": ["string", "null"] },
+            "machineVersion": { "type": ["integer", "null"] },
+            "opportunity": { "type": ["string", "null"] },
+            "operatorAuthorizationRequired": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["roles"],
+      "properties": {
+        "roles": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "enabled": { "const": false },
+              "agentTypes": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "unresolved": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "selectedRole": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "contractHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

@@ -35,12 +35,12 @@ import {
 import { makeScratch } from './helpers/scratch.mjs';
 
 const medium = {
-  model: 'claude-sonnet-5',
+  model: 'gpt-5.4',
   effort: 'medium',
   context: 'default',
 };
 const sensitiveMedium = {
-  model: 'gpt-5.6-sol',
+  model: 'gpt-5.4',
   effort: 'medium',
   context: 'default',
 };
@@ -51,8 +51,8 @@ const cheap = {
 };
 const critical = {
   model: 'gpt-5.6-sol',
-  effort: 'max',
-  context: 'long_context',
+  effort: 'high',
+  context: 'default',
 };
 const fixtureContractPolicy = fixturePolicy();
 const fixtureContractOpportunity = fixtureContractPolicy.opportunities[0];
@@ -184,7 +184,7 @@ function fixturePolicy() {
           id: 'external-research',
           kind: 'research-frontier',
           profile: {
-            model: 'gpt-6-astra',
+            model: 'gpt-5.6-sol',
             effort: 'high',
             context: 'default',
           },
@@ -195,8 +195,8 @@ function fixturePolicy() {
           id: 'binding-spec',
           kind: 'spec-planner',
           profile: {
-            model: 'gpt-5.6-sol',
-            effort: 'high',
+            model: 'gpt-5.4',
+            effort: 'medium',
             context: 'default',
           },
           triggerIds: ['binding-novel-spec-required'],
@@ -346,7 +346,7 @@ function coordinatorPrefix() {
     phaseKind: 'research-frontier',
     role: 'research-frontier',
     profile: {
-      model: 'gpt-6-astra',
+      model: 'gpt-5.6-sol',
       effort: 'high',
       context: 'default',
     },
@@ -363,8 +363,8 @@ function coordinatorPrefix() {
     phaseKind: 'spec-planner',
     role: 'spec-planner',
     profile: {
-      model: 'gpt-5.6-sol',
-      effort: 'high',
+      model: 'gpt-5.4',
+      effort: 'medium',
       context: 'default',
     },
     authority: 'semantic-specification-only',
@@ -488,7 +488,7 @@ test('registered deterministic phases execute without a model launch or model-bo
     phaseKind: 'research-frontier',
     role: 'research-frontier',
     profile: {
-      model: 'gpt-6-astra',
+      model: 'gpt-5.6-sol',
       effort: 'high',
       context: 'default',
     },
@@ -506,8 +506,8 @@ test('registered deterministic phases execute without a model launch or model-bo
     phaseKind: 'spec-planner',
     role: 'spec-planner',
     profile: {
-      model: 'gpt-5.6-sol',
-      effort: 'high',
+      model: 'gpt-5.4',
+      effort: 'medium',
       context: 'default',
     },
     authority: 'semantic-specification-only',
@@ -801,7 +801,7 @@ test('all-leg accounting records conditional not-run, failures, fallback and unr
     phaseKind: 'research-frontier',
     role: 'research-frontier',
     profile: {
-      model: 'gpt-6-astra',
+      model: 'gpt-5.6-sol',
       effort: 'high',
       context: 'default',
     },
@@ -1194,7 +1194,7 @@ function releaseFixture(root, options = {}) {
       authority: 'review-only',
     },
     exception: {
-      role: 'risk-triggered-frontier-review',
+      role: 'research-frontier',
       profile: critical,
       triggerIds: ['fixture-release-rollback-conflict'],
       requiresTriggerReceipt: true,

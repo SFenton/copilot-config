@@ -27,6 +27,24 @@ test('project adapters resolve and relocated contracts retain original detailed 
     for (const item of data.cases) {
       const adapter = readAdapter(item.root);
       assert.ok(adapter.gates.length > 0);
+      for (const key of [
+        'learningPolicy',
+        'opportunityPolicy',
+        'toolRegistry',
+        'opportunityEvaluation',
+        'workerEvaluation',
+        'capabilityEvaluation',
+        'sandboxProfiles',
+        'releaseMachine',
+      ]) {
+        assert.equal(typeof adapter[key], 'string',
+          `${item.id}: adapter ${key} is required`);
+      }
+      assert.deepEqual(adapter.delegation, {
+        allowedClasses: ['test-generation'],
+        requireCleanTargets: true,
+        requireDeterministicValidator: true,
+      }, `${item.id}: delegation policy must remain the qualified staging contract`);
       if (adapter.toolRegistry) {
         const registry = validateToolRegistry(JSON.parse(
           fs.readFileSync(path.join(item.root, adapter.toolRegistry), 'utf8'),
@@ -118,7 +136,7 @@ test('project adapters resolve and relocated contracts retain original detailed 
             `${item.id}: release machine reviewer must match the pipeline reviewer`);
             assert.ok(machine.exception.triggerIds.every(trigger =>
               releaseOpportunity.conditionalProfiles.some(profile =>
-                profile.kind === 'risk-triggered-frontier-review' &&
+                ['research-frontier', 'risk-triggered-frontier-review'].includes(profile.kind) &&
                 profile.triggerIds.includes(trigger))),
             `${item.id}: machine exception triggers must exist in opportunity policy`);
           }
@@ -158,8 +176,10 @@ test('project adapters resolve and relocated contracts retain original detailed 
       }
       const hook = JSON.parse(fs.readFileSync(path.join(item.root, '.github/hooks/budget-reads.json'), 'utf8'));
       assert.equal(hook.version, 1);
-      assert.equal(hook.hooks.preToolUse.length, 1);
-      execFileSync('bash', ['-n', '-c', hook.hooks.preToolUse[0].bash]);
+      assert.equal(Array.isArray(hook.hooks.preToolUse), false);
+      assert.equal(hook.hooks.userPromptSubmitted.length, 1);
+      assert.equal(hook.hooks.sessionEnd.length, 1);
+      assert.deepEqual(Object.keys(hook.hooks).sort(), ['sessionEnd', 'userPromptSubmitted']);
       const after = audit(item.root);
       assert.deepEqual(after.findings.filter(finding => finding.type === 'missing-link'), []);
       if (adapter.destructiveMaintenanceMachine) {

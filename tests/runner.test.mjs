@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { invocation, researchToolRequestAllowed, verifyCorpus, verifyEvidencePacket,
   terminateOwnedProcessTree, parseRunEvents } from '../skills/budget-workflow/scripts/run-leaf.mjs';
-import { resolvedConfiguration } from '../skills/budget-workflow/scripts/workflow.mjs';
+import { resolvedConfiguration, resolvedToolTelemetry } from '../skills/budget-workflow/scripts/workflow.mjs';
 import { packet } from '../skills/budget-workflow/scripts/budget.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -82,7 +82,7 @@ test('provisional worker candidates are explicit supported model pins', () => {
 
 test('expanded worker candidates preserve explicit model pins and HydraFusion experimental mode', () => {
   for (const model of [
-    'mai-code-1-flash-picker',
+    'gpt-5.3-codex',
     'gemini-3.5-flash',
     'gemini-3.6-flash',
     'gemini-3.7-flash',
@@ -120,7 +120,10 @@ test('leaf runtime configuration requires exact resolved event fields', () => {
     effort: request.effort,
     context: request.context,
   }).model, request.model);
-  assert.throws(() => resolvedConfiguration([], request), /Exactly one/);
+  assert.throws(() => resolvedConfiguration([], request),
+    /subagent\.configured or model\.call_start/);
+  assert.throws(() => resolvedToolTelemetry([], request.model),
+    /session\.tools_updated/);
 });
 
 test('CLI entry points execute through installed-style symlink paths', t => {

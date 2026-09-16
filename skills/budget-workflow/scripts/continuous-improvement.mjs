@@ -1,10 +1,16 @@
 #!/usr/bin/env node
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { contained, readAdapter } from './budget.mjs';
+import { AUTOMATIC_ROUTE_ROLE_CATALOG } from './model-catalog.mjs';
+import {
+  DISPATCH_ROLE_CATALOG,
+  expectedTaskContract,
+} from './effective-contract.mjs';
 import {
   canonicalJson,
   sha256,
@@ -14,6 +20,7 @@ import {
 import { mineCandidates } from './improvement-candidates.mjs';
 import { createReplayPlan, incubateCandidate } from './improvement-replay.mjs';
 import { validateOpportunityPolicyV3 } from './team-pipeline.mjs';
+import { normalizeUsage } from './usage.mjs';
 
 const EVENT_KINDS = new Set([
   'user-prompt-submitted',
@@ -42,7 +49,34 @@ const PRIVATE_KEYS = new Set([
   'stderr',
   'content',
 ]);
-
+const UUID_SESSION_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const FRONTIER_MODELS = new Set([
+  'gpt-5.6-sol',
+  'gpt-5.6-sol-fast',
+  'gpt-5.6-terra',
+  'gpt-5.6-luna',
+  'gpt-6-astra',
+]);
+const SESSION_MECHANICAL_TOOL_CATEGORIES = new Set([
+  'repository-read',
+  'repository-search',
+  'repository-edit',
+  'shell',
+  'tests',
+  'review',
+  'history-sql',
+  'workflow-sql',
+  'web',
+  'github',
+  'browser',
+  'mcp',
+  'documentation',
+  'memory-vote',
+  'memory-store',
+  'git',
+  'schedule',
+  'other',
+]);
 function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
@@ -80,6 +114,23 @@ function normalizedKey(key) {
   return /^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(key)
     ? key.toLowerCase()
     : `field-${sha256(key).slice(0, 12)}`;
+}
+
+function profileFromObject(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const model = value.selectedModel ?? value.selected_model ?? value.newModel ??
+    value.new_model ?? value.model;
+  const effort = value.reasoningEffort ?? value.reasoning_effort ?? value.effort;
+  const context = value.contextTier ?? value.context_tier ?? value.context;
+  if (typeof model !== 'string' || typeof effort !== 'string' || model.length === 0 ||
+    effort.length === 0) {
+    return null;
+  }
+  return {
+    model,
+    effort,
+    context: typeof context === 'string' && context.length > 0 ? context : 'default',
+  };
 }
 
 function argumentShape(value, depth = 0) {
@@ -299,8 +350,31 @@ function pendingPromptFile(home, repositoryHash, sessionId) {
     `${sessionId}.pending-improvement.json`);
 }
 
+function safeSessionStateId(value) {
+  assert(typeof value === 'string' && value.trim().length > 0,
+    'Session identifier required');
+  const sessionId = value.trim();
+  assert(!sessionId.includes(path.sep) && sessionId !== '.' && sessionId !== '..',
+    'Session identifier is invalid');
+  return sessionId;
+}
+
+function sessionComplianceFile(home, repositoryHash, sessionId) {
+  return path.join(stateRoot(home), repositoryHash, 'compliance',
+    `${sessionId}.json`);
+}
+
 function readJson(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
+}
+
+function fsyncDirectory(directory) {
+  const fd = fs.openSync(directory, 'r');
+  try {
+    fs.fsyncSync(fd);
+  } finally {
+    fs.closeSync(fd);
+  }
 }
 
 function writePrivateJson(file, value, options = {}) {
@@ -309,6 +383,59 @@ function writePrivateJson(file, value, options = {}) {
     mode: 0o600,
     ...options,
   });
+}
+
+function writePrivateJsonAtomic(file, value) {
+  const directory = path.dirname(file);
+  fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+  const temporary = path.join(
+    directory,
+    `.${path.basename(file)}.${process.pid}.${crypto.randomUUID()}.tmp`,
+  );
+  let descriptor = null;
+  let renamed = false;
+  try {
+    descriptor = fs.openSync(temporary, 'w', 0o600);
+    fs.writeFileSync(descriptor, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+    fs.fsyncSync(descriptor);
+    fs.closeSync(descriptor);
+    descriptor = null;
+    fs.renameSync(temporary, file);
+    renamed = true;
+    fs.chmodSync(file, 0o600);
+    fsyncDirectory(directory);
+  } finally {
+    if (descriptor !== null) fs.closeSync(descriptor);
+    if (!renamed && fs.statSync(temporary, { throwIfNoEntry: false })?.isFile()) {
+      fs.unlinkSync(temporary);
+    }
+  }
+}
+
+function classifyOptionalReportingFailure(error) {
+  if (!error || typeof error !== 'object') return 'unexpected';
+  switch (error.code) {
+    case 'EACCES':
+    case 'EPERM':
+      return 'permission-denied';
+    case 'ENOSPC':
+      return 'no-space';
+    case 'EEXIST':
+      return 'already-exists';
+    case 'EIO':
+    case 'EROFS':
+    case 'EXDEV':
+      return 'io-failure';
+    default:
+      return 'io-failure';
+  }
+}
+
+function optionalReportingFailure(stage, error) {
+  return {
+    stage,
+    classification: classifyOptionalReportingFailure(error),
+  };
 }
 
 function gitOutput(root, args) {
@@ -442,7 +569,7 @@ function loadPolicyBundle(readText, source) {
   };
 }
 
-function currentPolicyBundle(root) {
+function currentPolicyBundle(root, options = {}) {
   const adapterFile = path.join(root, '.github/agent-budget.json');
   if (!fs.statSync(adapterFile, { throwIfNoEntry: false })?.isFile()) return null;
   try {
@@ -474,8 +601,97 @@ function currentPolicyBundle(root) {
         ])].sort(),
       },
     };
+  } catch (error) {
+    if (options.failOnInvalidCurrent === false) return null;
+    throw new Error(`Current repository policy bundle is invalid: ${error.message}`);
+  }
+}
+
+function maybeCurrentPolicyBundle(root) {
+  try {
+    return currentPolicyBundle(root, { failOnInvalidCurrent: false });
   } catch {
     return null;
+  }
+}
+
+function minimalLifecyclePolicy(project) {
+  return {
+    version: 1,
+    project,
+    enabled: false,
+    retentionDays: 30,
+    thresholds: {
+      minimumSuccessfulWorkflows: 3,
+      minimumDistinctSessions: 2,
+      minimumStability: 0.8,
+      maximumCandidatesPerWorkflow: 1,
+      minimumOperationCount: 2,
+      maximumSubgraphOperations: 6,
+      maximumAnalysisEvents: 10000,
+    },
+    priorities: [],
+    destinations: {
+      incubation: '.git/copilot-learning',
+      tools: '.github/learned-tools',
+      skills: '.github/skills',
+      fixtures: 'tests/fixtures/learning',
+    },
+    eligiblePaths: ['.'],
+    excludedPaths: ['.env', 'secrets'],
+    riskClasses: [],
+    validators: [],
+    knownTools: [],
+    knownSkills: [],
+    automaticBuild: false,
+    automaticPromotion: false,
+    continuation: { enabled: false },
+    promotion: {
+      allowedSideEffects: ['none', 'workspace'],
+      requireReplay: true,
+      requireProjectValidation: true,
+      requireMediumReview: true,
+      requirePositiveValue: true,
+      requireScopeCheck: true,
+      requireRollback: true,
+    },
+  };
+}
+
+function lifecycleContext(root, options = {}) {
+  try {
+    return options.context ?? resolveContext(root, options);
+  } catch {
+    const adapter = maybeCurrentPolicyBundle(root)?.adapter ??
+      (() => {
+        try {
+          return readAdapter(root);
+        } catch {
+          return {
+            version: 1,
+            project: path.basename(root),
+            instructions: [],
+            riskTerms: [],
+            gates: [],
+          };
+        }
+      })();
+    return {
+      root,
+      adapter,
+      policy: minimalLifecyclePolicy(adapter.project),
+      toolRegistry: { version: 1, project: adapter.project, tools: [] },
+      opportunityPolicy: null,
+      opportunityEvaluationPacket: null,
+      workerEvaluationPacket: null,
+      source: {
+        kind: 'advisory-no-learning-policy',
+        ref: null,
+        revision: gitOutput(root, ['rev-parse', 'HEAD']),
+        sourceHash: sha256({ project: adapter.project, root }),
+      },
+      identity: logicalRepositoryIdentity(root, adapter.project),
+    };
   }
 }
 
@@ -1013,8 +1229,7 @@ export function sanitizeHookEvent(eventKind, payload, options = {}) {
     opportunityId: ID_PATTERN.test(opportunityId ?? '') ? opportunityId : null,
     repositoryHash,
     repositoryIdentityHash: context.identity.repositoryIdentityHash,
-    revision: options.revision ?? execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'],
-      { encoding: 'utf8' }).trim(),
+    revision: options.revision ?? gitOutput(root, ['rev-parse', 'HEAD']) ?? 'uncommitted',
     policySourceKind: context.source.kind,
     policySourceRef: context.source.ref,
     policySourceRevision: context.source.revision,
@@ -1195,6 +1410,400 @@ export function pruneExpiredEvents(home, repositoryHash, retentionDays,
       { mode: 0o600 });
   }
   return removed;
+}
+
+function dispatchManifestFromPrompt(prompt) {
+  const match = String(prompt ?? '').match(/```budget-dispatch-manifest\s*([\s\S]*?)\s*```/i);
+  if (!match) return null;
+  try {
+    const parsed = JSON.parse(match[1]);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function normalizedTaskField(value) {
+  return typeof value === 'string'
+    ? value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+    : '';
+}
+
+function classifyTaskRole(args) {
+  const manifest = dispatchManifestFromPrompt(args.prompt);
+  if (manifest?.role && expectedTaskContract(manifest)) {
+    return { role: manifest.role, mode: 'explicit-dispatch', manifest };
+  }
+  const values = [
+    args.taskClass,
+    args.task_class,
+    args.name,
+    args.description,
+  ]
+    .map(normalizedTaskField)
+    .filter(Boolean);
+  for (const [role] of Object.entries(AUTOMATIC_ROUTE_ROLE_CATALOG)) {
+    const normalizedRole = normalizedTaskField(role);
+    if (values.some(value => value === normalizedRole ||
+      value.includes(normalizedRole) ||
+      normalizedRole.includes(value))) {
+      return { role, mode: 'automatic-route', manifest: null };
+    }
+  }
+  for (const [role] of Object.entries(DISPATCH_ROLE_CATALOG)) {
+    const normalizedRole = normalizedTaskField(role);
+    if (values.some(value => value === normalizedRole ||
+      value.includes(normalizedRole) ||
+      normalizedRole.includes(value))) {
+      return { role, mode: 'explicit-dispatch', manifest: null };
+    }
+  }
+  return {
+    role: null,
+    mode: 'unclassified',
+    manifest,
+  };
+}
+
+function taskPins(args) {
+  return {
+    model: args.model ?? null,
+    effort: args.reasoning_effort ?? args.reasoningEffort ?? null,
+    context: args.context_tier ?? args.contextTier ?? null,
+    agentType: args.agent_type ?? args.agentType ?? null,
+  };
+}
+
+function hasMissingTaskPins(pins) {
+  return ['model', 'effort', 'context', 'agentType']
+    .some(key => typeof pins[key] !== 'string' || pins[key].trim().length === 0);
+}
+
+function hasInheritPins(pins) {
+  return ['model', 'effort', 'context', 'agentType']
+    .some(key => typeof pins[key] === 'string' &&
+      pins[key].trim().toLowerCase() === 'inherit');
+}
+
+function taskRoleMismatch(taskInfo, pins) {
+  if (!taskInfo?.role || hasMissingTaskPins(pins) || hasInheritPins(pins)) {
+    return false;
+  }
+  const expected = expectedTaskContract(taskInfo.manifest ?? { role: taskInfo.role });
+  if (!expected) return false;
+  return expected.model !== pins.model ||
+    expected.effort !== pins.effort ||
+    expected.context !== pins.context ||
+    (expected.agentTypes.length > 0 && !expected.agentTypes.includes(pins.agentType));
+}
+
+function lineSeparatedJsonRecords(file) {
+  const stat = fs.statSync(file, { throwIfNoEntry: false });
+  if (!stat?.isFile()) return { status: 'missing', events: [] };
+  try {
+    const lines = fs.readFileSync(file, 'utf8').split('\n').filter(Boolean);
+    return {
+      status: 'ok',
+      events: lines.map(line => JSON.parse(line)),
+    };
+  } catch {
+    return { status: 'invalid', events: [] };
+  }
+}
+
+function sessionRuntimeEventsFile(home, sessionId) {
+  return path.join(home, 'session-state', safeSessionStateId(sessionId), 'events.jsonl');
+}
+
+function sessionUsageFile(home, sessionId) {
+  return path.join(home, 'session-state', safeSessionStateId(sessionId), 'usage.json');
+}
+
+function sessionUsageSummary(home, sessionId) {
+  const file = sessionUsageFile(home, sessionId);
+  const stat = fs.statSync(file, { throwIfNoEntry: false });
+  if (!stat?.isFile()) return { status: 'missing', usage: null };
+  try {
+    const usage = normalizeUsage(JSON.parse(fs.readFileSync(file, 'utf8')));
+    return {
+      status: 'ok',
+      usage: {
+        credits: usage.credits,
+        totalTokens: usage.totalTokens,
+        usageHash: sha256(usage),
+      },
+    };
+  } catch {
+    return { status: 'invalid', usage: null };
+  }
+}
+
+function modelIsClaude(model) {
+  return typeof model === 'string' && /^claude-/i.test(model);
+}
+
+function modelIsFrontier(model) {
+  return typeof model === 'string' && FRONTIER_MODELS.has(model);
+}
+
+function mechanicalToolCategory(toolName, args) {
+  const name = typeof toolName === 'string' ? toolName : '';
+  if (name === 'task') return 'delegation';
+  if (name === 'session_store_sql') return 'history-sql';
+  if (name === 'sql') return 'workflow-sql';
+  if (name === 'fetch_copilot_cli_documentation') return 'documentation';
+  if (name === 'vote_memory') return 'memory-vote';
+  if (name === 'store_memory') return 'memory-store';
+  if (['view', 'Read'].includes(name)) return 'repository-read';
+  if (['rg', 'glob', 'grep'].includes(name)) return 'repository-search';
+  if (['apply_patch', 'edit', 'create', 'write'].includes(name)) return 'repository-edit';
+  if (name === 'bash' || name === 'powershell') {
+    const command = typeof args?.command === 'string' ? args.command.trim() : '';
+    if (/^(?:(?:npm|pnpm|yarn)\s+(?:test|run\s+(?:test(?::[\w-]+)?|lint|build|check(?::[\w-]+)?))\b|node\s+--test\b|dotnet\s+(?:test|build)\b|pytest\b|python\s+-m\s+pytest\b|cargo\s+(?:test|check)\b|go\s+test\b)/i.test(command)) {
+      return 'tests';
+    }
+    if (/^git\b/i.test(command)) return 'git';
+    if (/^node\b.*\brouting-enforcement\.mjs\b/i.test(command)) return 'shell';
+    return 'shell';
+  }
+  if (name === 'task_complete' || name === 'skill') return 'control-plane';
+  if (name === 'web_fetch' || name === 'web_search') return 'web';
+  if (/^(?:github-mcp-server-)?(?:search_code|search_users|get_file_contents|get_copilot_space|list_copilot_spaces)$/.test(name)) {
+    return 'github';
+  }
+  if (name.startsWith('browser_')) return 'browser';
+  if (/^(?:ha_|plex-|plex_|unifi-|unifi_|arr_|fetch$)/.test(name)) return 'mcp';
+  return 'other';
+}
+
+function runtimeProfileFromEvent(event) {
+  if (!['session.start', 'session.model_change'].includes(event?.type)) return null;
+  const data = event.data ?? {};
+  return profileFromObject(data);
+}
+
+function runtimeEventTimestamp(event) {
+  return Date.parse(normalizeTimestamp(event?.timestamp ?? event?.data?.timestamp ?? Date.now()));
+}
+
+function summarizeSessionCompliance(runtimeEvents, usageSummary, state, options = {}) {
+  const categories = Object.fromEntries([...SESSION_MECHANICAL_TOOL_CATEGORIES]
+    .map(name => [name, 0]));
+  const mismatchRoles = new Set();
+  const delegationRoles = { automatic: {}, explicit: {} };
+  const counts = {
+    frontierDirectMechanicalTools: categories,
+    frontierDirectMechanicalToolTotal: 0,
+    missingTaskPins: 0,
+    inheritTaskPins: 0,
+    claudePersistentPins: 0,
+    modelRoleMismatches: 0,
+    automaticDelegation: 0,
+    explicitDelegation: 0,
+  };
+  const sessionModels = new Set();
+  const events = [...runtimeEvents].sort((left, right) =>
+    runtimeEventTimestamp(left) - runtimeEventTimestamp(right));
+  let currentProfile = {
+    model: state?.model ?? null,
+    effort: state?.effort ?? null,
+    context: state?.context ?? 'default',
+  };
+  for (const event of events) {
+    const profile = runtimeProfileFromEvent(event);
+    if (profile) {
+      currentProfile = profile;
+      if (modelIsClaude(profile.model)) counts.claudePersistentPins += 1;
+      if (typeof profile.model === 'string' && profile.model.length > 0) {
+        sessionModels.add(profile.model);
+      }
+      continue;
+    }
+    if (event?.type !== 'tool.execution_start') continue;
+    const data = event.data ?? {};
+    const toolName = data.toolName;
+    const args = data.arguments ?? {};
+    if (toolName === 'task') {
+      const pins = taskPins(args);
+      const role = classifyTaskRole(args);
+      if (hasMissingTaskPins(pins)) counts.missingTaskPins += 1;
+      if (hasInheritPins(pins)) counts.inheritTaskPins += 1;
+      if (typeof pins.model === 'string' && modelIsClaude(pins.model)) {
+        counts.claudePersistentPins += 1;
+      }
+      if (role.mode === 'automatic-route' && role.role) {
+        counts.automaticDelegation += 1;
+        delegationRoles.automatic[role.role] = (delegationRoles.automatic[role.role] ?? 0) + 1;
+      } else if (role.mode === 'explicit-dispatch' && role.role) {
+        counts.explicitDelegation += 1;
+        delegationRoles.explicit[role.role] = (delegationRoles.explicit[role.role] ?? 0) + 1;
+      }
+      if (taskRoleMismatch(role, pins)) {
+        counts.modelRoleMismatches += 1;
+        mismatchRoles.add(role.role);
+      }
+      continue;
+    }
+    if (!modelIsFrontier(currentProfile.model)) continue;
+    const category = mechanicalToolCategory(toolName, args);
+    if (!SESSION_MECHANICAL_TOOL_CATEGORIES.has(category)) continue;
+    categories[category] += 1;
+    counts.frontierDirectMechanicalToolTotal += 1;
+  }
+  const frontierDirectOnly = counts.frontierDirectMechanicalToolTotal > 0 &&
+    counts.automaticDelegation === 0 &&
+    counts.explicitDelegation === 0 &&
+    counts.modelRoleMismatches === 0 &&
+    counts.missingTaskPins === 0 &&
+    counts.inheritTaskPins === 0 &&
+    [...sessionModels].every(model => modelIsFrontier(model));
+  const estimatedAvoidableCredits = usageSummary.status === 'ok' &&
+    usageSummary.usage &&
+    frontierDirectOnly
+    ? {
+      credits: usageSummary.usage.credits,
+      basis: 'frontier-direct-session-upper-bound',
+      usageHash: usageSummary.usage.usageHash,
+    }
+    : null;
+  return {
+    counts,
+    mismatchRoles: [...mismatchRoles].sort(),
+    delegationRoles: {
+      automatic: Object.fromEntries(Object.entries(delegationRoles.automatic).sort()),
+      explicit: Object.fromEntries(Object.entries(delegationRoles.explicit).sort()),
+    },
+    sessionModels: [...sessionModels].sort(),
+    estimatedAvoidableCredits,
+  };
+}
+
+export function readSessionComplianceObservation(home, repositoryHash, sessionId) {
+  const file = sessionComplianceFile(home, repositoryHash, sessionId);
+  if (!fs.statSync(file, { throwIfNoEntry: false })?.isFile()) return null;
+  return readJson(file);
+}
+
+export function buildSessionComplianceObservation(root, payload, options = {}) {
+  const context = lifecycleContext(root, options);
+  const home = options.home ?? process.env.COPILOT_HOME ?? path.join(os.homedir(), '.copilot');
+  const rawSessionId = safeSessionStateId(String(payload.sessionId ?? payload.session_id ?? 'unknown'));
+  const repositoryHash = context.identity.repositoryHash;
+  const sessionId = sha256(`session:${rawSessionId}`);
+  const state = activeWorkflow(home, repositoryHash, sessionId);
+  const runtime = lineSeparatedJsonRecords(sessionRuntimeEventsFile(home, rawSessionId));
+  const usage = sessionUsageSummary(home, rawSessionId);
+  const summary = summarizeSessionCompliance(runtime.events, usage, state, options);
+  const unsigned = {
+    version: 1,
+    kind: 'routing-compliance-observation',
+    mode: 'markdown-first-advisory',
+    project: context.adapter.project,
+    repositoryHash,
+    repositoryIdentityHash: context.identity.repositoryIdentityHash,
+    sessionId,
+    workflowId: state?.workflowId ?? null,
+    promptHash: state?.promptHash ?? null,
+    observedAt: normalizeTimestamp(options.timestamp ?? payload.timestamp ?? Date.now()),
+    runtimeEventStatus: runtime.status,
+    usageStatus: usage.status,
+    counts: summary.counts,
+    mismatchRoles: summary.mismatchRoles,
+    delegationRoles: summary.delegationRoles,
+    sessionModels: summary.sessionModels,
+    estimatedAvoidableCredits: summary.estimatedAvoidableCredits,
+  };
+  return { ...unsigned, reportHash: sha256(unsigned) };
+}
+
+export function persistSessionComplianceObservation(root, payload, options = {}) {
+  const report = buildSessionComplianceObservation(root, payload, options);
+  const context = lifecycleContext(root, options);
+  const home = options.home ?? process.env.COPILOT_HOME ?? path.join(os.homedir(), '.copilot');
+  writePrivateJsonAtomic(
+    sessionComplianceFile(home, context.identity.repositoryHash, report.sessionId),
+    report,
+  );
+  return report;
+}
+
+export function recordLifecyclePromptStart(payload, options = {}) {
+  const root = findRoot(payload.cwd ?? process.cwd());
+  if (!root) return { recorded: false, reason: 'no-root' };
+  const context = lifecycleContext(root, options);
+  const home = options.home ?? process.env.COPILOT_HOME ?? path.join(os.homedir(), '.copilot');
+  const workflowState = options.workflowState ??
+    beginPromptWorkflow(root, payload, { ...options, home, context });
+  appendSanitizedEvent(home, sanitizeHookEvent('user-prompt-submitted', payload, {
+    root,
+    adapter: context.adapter,
+    policy: context.policy,
+    home,
+    workflowState,
+    context,
+    modelProfile: options.modelProfile ?? null,
+    modelBacked: false,
+  }));
+  return {
+    recorded: true,
+    workflowId: workflowState.workflowId,
+    promptHash: workflowState.promptHash,
+  };
+}
+
+export function recordLifecycleSessionEnd(payload, options = {}) {
+  const root = findRoot(payload.cwd ?? process.cwd());
+  if (!root) return { recorded: false, reason: 'no-root' };
+  const context = lifecycleContext(root, options);
+  const home = options.home ?? process.env.COPILOT_HOME ?? path.join(os.homedir(), '.copilot');
+  const rawSessionId = safeSessionStateId(String(payload.sessionId ?? payload.session_id ?? 'unknown'));
+  const sessionId = sha256(`session:${rawSessionId}`);
+  const workflowState = activeWorkflow(home, context.identity.repositoryHash, sessionId);
+  const reportingFailures = [];
+  let eventRecorded = false;
+  try {
+    appendSanitizedEvent(home, sanitizeHookEvent('session-end', payload, {
+      root,
+      adapter: context.adapter,
+      policy: context.policy,
+      home,
+      workflowState,
+      context,
+    }));
+    eventRecorded = true;
+  } catch (error) {
+    reportingFailures.push(optionalReportingFailure('session-end-event', error));
+  }
+  let compliance = null;
+  try {
+    compliance = persistSessionComplianceObservation(root, payload, {
+      ...options,
+      context,
+      home,
+    });
+  } catch (error) {
+    reportingFailures.push(optionalReportingFailure('session-end-compliance', error));
+  }
+  let prunedExpiredEvents = null;
+  try {
+    prunedExpiredEvents = pruneExpiredEvents(
+      home,
+      context.identity.repositoryHash,
+      context.policy.retentionDays,
+    );
+  } catch (error) {
+    reportingFailures.push(optionalReportingFailure('session-end-prune', error));
+  }
+  return {
+    recorded: true,
+    eventRecorded,
+    complianceRecorded: compliance !== null,
+    compliance,
+    reportingFailures,
+    prunedExpiredEvents,
+  };
 }
 
 function gitLearningRoot(root) {
@@ -1990,10 +2599,7 @@ function main() {
   const policy = context.policy;
   const home = process.env.COPILOT_HOME ?? path.join(os.homedir(), '.copilot');
   if (event === 'user-prompt-submitted') {
-    const workflowState = beginPromptWorkflow(root, payload, { home, context });
-    appendSanitizedEvent(home, sanitizeHookEvent(event, payload, {
-      root, adapter, policy, home, workflowState, context,
-    }));
+    recordLifecyclePromptStart(payload, { home, context });
     process.stdout.write('{}');
     return;
   }
@@ -2004,11 +2610,13 @@ function main() {
       : '{}');
     return;
   }
+  if (event === 'session-end') {
+    recordLifecycleSessionEnd(payload, { home, context });
+    process.stdout.write('{}');
+    return;
+  }
   const record = sanitizeHookEvent(event, payload, { root, context, home });
   appendSanitizedEvent(home, record);
-  if (event === 'session-end') {
-    pruneExpiredEvents(home, record.repositoryHash, policy.retentionDays);
-  }
   process.stdout.write('{}');
 }
 

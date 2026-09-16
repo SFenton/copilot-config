@@ -283,9 +283,108 @@ test('resolved model configuration requires exact event evidence', () => {
   };
   const result = resolvedConfiguration([event], expected);
   assert.equal(result.evidenceHash, sha256(event));
-  assert.throws(() => resolvedConfiguration([], expected), /Exactly one/);
+  assert.throws(() => resolvedConfiguration([], expected),
+    /subagent\.configured or model\.call_start/);
   assert.throws(() => resolvedConfiguration([{
     ...event,
     data: { ...event.data, reasoningEffort: 'high' },
   }], expected), /effort mismatch/);
+});
+
+test('resolved model configuration accepts the current CLI telemetry shape only when it is exact and complete', () => {
+  const expected = { model: 'gpt-5.4', effort: 'medium', context: 'default' };
+  const events = [
+    {
+      type: 'model.call_start',
+      data: {
+        model: expected.model,
+        reasoningEffort: expected.effort,
+        contextTier: expected.context,
+      },
+    },
+    {
+      type: 'session.tools_updated',
+      data: {
+        tools: [{ name: 'fetch_copilot_cli_documentation' }],
+      },
+    },
+    {
+      type: 'session.usage_checkpoint',
+      data: {
+        promptCacheBreakState: [{
+          models: {
+            [expected.model]: {
+              tool_count: 0,
+              tools: [],
+            },
+          },
+        }],
+      },
+    },
+  ];
+  const resolved = resolvedConfiguration(events, expected);
+  assert.equal(resolved.model, expected.model);
+  assert.equal(resolved.effort, expected.effort);
+  assert.equal(resolved.context, expected.context);
+  assert.equal(resolved.source,
+    'model.call_start+session.tools_updated+session.usage_checkpoint');
+  assert.throws(() => resolvedConfiguration([
+    ...events,
+    {
+      type: 'model.call_start',
+      data: {
+        model: expected.model,
+        reasoningEffort: 'high',
+        contextTier: expected.context,
+      },
+    },
+  ], expected), /ambiguous|mismatch/);
+  assert.throws(() => resolvedConfiguration(events.filter(event =>
+    event.type !== 'session.tools_updated'), expected), /session\.tools_updated/);
+  assert.throws(() => resolvedConfiguration(events.filter(event =>
+    event.type !== 'session.usage_checkpoint'), expected), /session\.usage_checkpoint/);
+  assert.throws(() => resolvedConfiguration([
+    {
+      type: 'subagent.configured',
+      data: {
+        model: expected.model,
+        reasoningEffort: 'high',
+        contextTier: expected.context,
+      },
+    },
+    ...events,
+  ], expected), /conflicts|mismatch/);
+  assert.throws(() => resolvedConfiguration([
+    events[0],
+    {
+      type: 'session.tools_updated',
+      data: {
+        tools: [{ name: 'fetch_copilot_cli_documentation' }],
+      },
+    },
+    {
+      type: 'session.tools_updated',
+      data: {
+        tools: [{ name: 'view' }],
+      },
+    },
+    events[2],
+  ], expected), /telemetry is ambiguous/);
+  assert.throws(() => resolvedConfiguration([
+    events[0],
+    events[1],
+    {
+      type: 'session.usage_checkpoint',
+      data: {
+        promptCacheBreakState: [{
+          models: {
+            other: {
+              tool_count: 0,
+              tools: [],
+            },
+          },
+        }],
+      },
+    },
+  ], expected), /conflicts with the resolved model/);
 });

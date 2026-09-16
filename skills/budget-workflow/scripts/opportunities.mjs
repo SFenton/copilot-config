@@ -144,10 +144,10 @@ export function readOpportunityPolicy(root, adapter = readAdapter(root)) {
         `${item.id}: authorized work must retain an explicit owner`);
     }
     if (['explicit-live', 'explicit-release'].includes(item.strategy)) {
-      assert(item.primary.model === 'gpt-5.6-sol' &&
-        ['medium', 'high'].includes(item.primary.effort) &&
+      assert(item.primary.model === 'gpt-5.4' &&
+        item.primary.effort === 'medium' &&
         item.primary.context === 'default',
-      `${item.id}: legacy live/release coordination cannot use standing max/long residency`);
+      `${item.id}: live/release coordination must use the qualified gpt-5.4 medium/default owner`);
     }
   }
   return policy;
@@ -156,14 +156,9 @@ export function readOpportunityPolicy(root, adapter = readAdapter(root)) {
 function currentAdapterDeclaresOpportunityPolicy(root) {
   const file = path.join(root, '.github/agent-budget.json');
   if (!fs.statSync(file, { throwIfNoEntry: false })?.isFile()) return false;
-  try {
-    const adapter = JSON.parse(fs.readFileSync(file, 'utf8'));
-    return adapter?.version === 1 &&
-      typeof adapter.opportunityPolicy === 'string' &&
-      adapter.opportunityPolicy.length > 0;
-  } catch {
-    return false;
-  }
+  const adapter = readAdapter(root);
+  return typeof adapter.opportunityPolicy === 'string' &&
+    adapter.opportunityPolicy.length > 0;
 }
 
 export function readEffectiveOpportunityPolicy(root) {
@@ -229,7 +224,15 @@ export function opportunityPlan(task, policy) {
     return {
       status: matches.length === 0 ? 'needs-opportunity' : 'ambiguous-opportunity',
       candidates: matches.map(item => item.id),
-      instruction: 'Select one exact repository opportunity; do not guess or combine model pins.',
+      frontierContinuationAllowed: false,
+      dispatchProfile: {
+        role: 'implementation-coordinator',
+        agentType: 'general-purpose',
+        model: 'gpt-5.4',
+        effort: 'medium',
+        context: 'default',
+      },
+      instruction: 'Select one exact repository opportunity or dispatch an explicit gpt-5.4 medium/default coordinator manifest; protected sessions must not continue directly.',
     };
   }
   const item = matches[0];
@@ -307,8 +310,9 @@ export function opportunityPlan(task, policy) {
         policy.toolRegistry,
       ),
       qualification: policy.qualification,
+      dispatchManifestRequired: true,
       warning: item.enabled
-        ? 'Routing and deterministic evidence require zero model calls. Model roles have semantic authority only; repository apply and every external side effect require separate operator authorization.'
+        ? 'Routing and deterministic evidence require zero model calls. Convert ready plans into an exact dispatch manifest before task launch. Model roles have semantic authority only; repository apply and every external side effect require separate operator authorization.'
         : 'This opportunity is disabled because project policy or case evidence is invalidated. Do not launch replacement models or fabricate evidence.',
     };
     return { ...plan, planHash: sha256(plan) };

@@ -139,17 +139,18 @@ export function inventory(config, manifest) {
       }));
     }
     for (const machine of projectMachines) {
-      const valid = maxLong(machine.exception.profile) &&
-        machine.exception.requiresTriggerReceipt === true &&
-        machine.exception.triggerIds.length > 0;
-      structuredPins.push({
-        project: machine.project,
-        machine: machine.variant ?? machine.opportunity,
-        slot: 'machine-exception',
-        conditional: true,
-        triggerIds: machine.exception.triggerIds,
-        violation: valid ? null : 'machine exception max/long lacks a trigger receipt',
-      });
+      if (maxLong(machine.exception.profile)) {
+        const valid = machine.exception.requiresTriggerReceipt === true &&
+          machine.exception.triggerIds.length > 0;
+        structuredPins.push({
+          project: machine.project,
+          machine: machine.variant ?? machine.opportunity,
+          slot: 'machine-exception',
+          conditional: true,
+          triggerIds: machine.exception.triggerIds,
+          violation: valid ? null : 'machine exception max/long lacks a trigger receipt',
+        });
+      }
       machines.push({
         project: machine.project,
         variant: machine.variant ?? null,
@@ -186,7 +187,8 @@ export function inventory(config, manifest) {
       (site.category === 'test-coupling' ||
         /(?:gpt-5\.6-sol|\bSol\b)/i.test(text));
     assert(hasMaxPin, `Canonical site no longer contains a max/long pin: ${site.path}`);
-    let triggerBound = /trigger|copy-safety-conflict|criticalProfile/i.test(text);
+    let triggerBound = /trigger|copy-safety-conflict|criticalProfile|explicit(?:-only|ly asks)/i
+      .test(text);
     if (site.historical) {
       const routing = JSON.parse(fs.readFileSync(path.join(
         roots.ha,

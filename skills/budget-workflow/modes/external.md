@@ -27,6 +27,8 @@ public query text from private code, identifiers, logs, customer data or secrets
 Find `{"scope":"external","queryId":"seeds"}`, then open returned source IDs.
 Follow authoritative links, not every search result. `focus` filters fetched
 text locally and is not sent as a search query.
+Freeze the opened evidence into a packet before any model reasoning. Frontier
+research receives the frozen packet in `reason-only` mode and no web tools.
 
 Only approved HTTPS static HTML/plaintext is supported. GitHub repository search
 and Crossref metadata are not unrestricted web/paper search. Missing browser,

@@ -18,7 +18,10 @@ text. Contracts remain local.
 3. Discover/open approved public evidence for those gaps. The broker requires
    the source-backed contract first and reserves phase headroom. After external
    evidence has been opened, repository reads resume for applicability.
-4. Map the conclusion back to existing owners, alternatives, concrete offline
+4. Freeze the combined repository/external evidence into one packet before any
+   model reasoning. Frontier legs receive the identical packet hash with
+   `toolMode: reason-only` and no tools.
+5. Map the conclusion back to existing owners, alternatives, concrete offline
    validation proposals and uncertainty. A public recommendation is not proof
    of compatibility or a measured performance improvement.
 

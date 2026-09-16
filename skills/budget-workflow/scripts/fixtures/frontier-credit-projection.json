@@ -1,0 +1,42 @@
+{
+  "version": 2,
+  "assumptions": "Sanitized seven-day aggregate workload shapes only. Candidate routing removes all mechanical frontier tool work, preserves deterministic evidence collection, and reserves frontier credits solely for packet-bound reasoning. Estimated comparison only: tandem replay assumes a Sol max/default primary plus adjudicator lane and an Astra medium/default secondary lane, normalizing the former Sol/Opus tandem baseline into current usage lanes using observed internal Sol-like 1x and Astra-like 1x accounting; it does not claim observed future savings. Actual credits still vary with packet size, citations, retries, and context. Quality parity evidence is structural: packet hashes, citation validation, and deterministic tandem comparison replay.",
+  "scenarios": {
+    "single-frontier-research": {
+      "baseline": [
+        { "category": "deterministic-evidence", "actualCredits": 2.4, "reservedCredits": null, "usageHash": null },
+        { "category": "sol-research", "actualCredits": 13.8, "reservedCredits": null, "usageHash": null },
+        { "category": "downstream-implementation", "actualCredits": 6.3, "reservedCredits": null, "usageHash": null }
+      ],
+      "candidate": [
+        { "category": "deterministic-evidence", "actualCredits": 2.8, "reservedCredits": null, "usageHash": null },
+        { "category": "cheap-curation", "actualCredits": 1.1, "reservedCredits": null, "usageHash": null },
+        { "category": "sol-research", "actualCredits": 4.2, "reservedCredits": null, "usageHash": null },
+        { "category": "downstream-implementation", "actualCredits": 6.3, "reservedCredits": null, "usageHash": null }
+      ],
+      "baselineNonResearchFrontierCredits": 22.0,
+      "candidateNonResearchFrontierCredits": 0,
+      "qualityParityEvidence": "deterministic packet replay with strict citation validation and no unsupported frontier tool calls"
+    },
+    "tandem-frontier-research": {
+      "baseline": [
+        { "category": "deterministic-evidence", "actualCredits": 3.2, "reservedCredits": null, "usageHash": null },
+        { "category": "sol-research", "actualCredits": 19.0, "reservedCredits": null, "usageHash": null },
+        { "category": "astra-research", "actualCredits": 1.2, "reservedCredits": null, "usageHash": null },
+        { "category": "research-adjudication", "actualCredits": 9.1, "reservedCredits": null, "usageHash": null },
+        { "category": "downstream-implementation", "actualCredits": 8.1, "reservedCredits": null, "usageHash": null }
+      ],
+      "candidate": [
+        { "category": "deterministic-evidence", "actualCredits": 4.0, "reservedCredits": null, "usageHash": null },
+        { "category": "cheap-curation", "actualCredits": 1.8, "reservedCredits": null, "usageHash": null },
+        { "category": "sol-research", "actualCredits": 9.5, "reservedCredits": null, "usageHash": null },
+        { "category": "astra-research", "actualCredits": 0.6, "reservedCredits": null, "usageHash": null },
+        { "category": "research-adjudication", "actualCredits": 4.6, "reservedCredits": null, "usageHash": null },
+        { "category": "downstream-implementation", "actualCredits": 8.1, "reservedCredits": null, "usageHash": null }
+      ],
+      "baselineNonResearchFrontierCredits": 31.0,
+      "candidateNonResearchFrontierCredits": 0,
+      "qualityParityEvidence": "deterministic tandem comparison/adjudication replay with identical packet hashes and strict citation validation"
+    }
+  }
+}

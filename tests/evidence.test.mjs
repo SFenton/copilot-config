@@ -48,13 +48,13 @@ test('evidence location and research risk are separate; irrelevant phase gates s
   assert.deepEqual(hybrid.rules, ['Keep source truth', 'No live claims']);
   assert.ok(!hybrid.rules.includes('Release approval'));
   const repo = taskPlan({ ...base, mode: 'repository', risk: 'high' }, adapter);
-  assert.equal(repo.model, 'gpt-6-astra');
+  assert.equal(repo.model, 'gpt-5.6-sol');
   assert.equal(repo.effort, 'high');
   assert.equal(repo.automaticWorker, false);
   assert.equal(taskPlan({ ...base, mode: 'auto' }).status, 'needs-scope-probe');
   assert.equal(taskPlan({ ...base, mode: 'external', novel: true }).effort, 'high');
   assert.equal(taskPlan({ ...base, mode: 'repository', question: 'Investigate lock behavior' },
-    { ...adapter, riskTerms: ['lock'] }).model, 'gpt-6-astra');
+    { ...adapter, riskTerms: ['lock'] }).model, 'gpt-5.6-sol');
 });
 
 test('delegation requires qualified all-leg savings, not just a cheap worker rate', () => {

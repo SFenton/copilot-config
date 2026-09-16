@@ -8,10 +8,14 @@ import {
   appendSanitizedEvent,
   backfillEvents,
   beginPromptWorkflow,
+  buildSessionComplianceObservation,
   createWorkflowCompletionObservation,
   findRoot,
   logicalRepositoryIdentity,
   persistCandidateLedger,
+  readSessionComplianceObservation,
+  recordLifecyclePromptStart,
+  recordLifecycleSessionEnd,
   pruneExpiredEvents,
   readCandidateLedger,
   readEffectiveProjectPolicy,
@@ -104,7 +108,7 @@ function opportunity(id = 'fixture', options = {}) {
       coordinator: {
         role: 'medium-coordinator',
         profile: {
-          model: 'claude-sonnet-5',
+          model: 'gpt-5.4',
           effort: 'medium',
           context: 'default',
         },
@@ -113,7 +117,7 @@ function opportunity(id = 'fixture', options = {}) {
       reviewer: {
         role: 'medium-review',
         profile: {
-          model: 'claude-sonnet-5',
+          model: 'gpt-5.4',
           effort: 'medium',
           context: 'default',
         },
@@ -726,6 +730,315 @@ test('sessionEnd reasons distinguish accepted, rejected and failed outcomes', t 
     { ...base, reason: 'timeout' }, options).resultClass, 'failed');
 });
 
+test('lifecycle wrappers keep one prompt/session-end path and store only sanitized compliance metadata', t => {
+  const root = repository(t);
+  const home = path.join(root, 'compliance-home');
+  const rawSessionId = '550e8400-e29b-41d4-a716-446655440000';
+  const secret = 'SESSION_PRIVATE_SECRET';
+  recordLifecyclePromptStart({
+    cwd: root,
+    sessionId: rawSessionId,
+    timestamp: 1788966000000,
+    prompt: `Use bounded routing only ${secret}`,
+    selectedModel: 'gpt-5.6-sol',
+    reasoningEffort: 'max',
+    contextTier: 'default',
+  }, { home });
+
+  const eventsFile = path.join(home, 'session-state', rawSessionId, 'events.jsonl');
+  fs.mkdirSync(path.dirname(eventsFile), { recursive: true });
+  fs.writeFileSync(eventsFile, `${[
+    {
+      type: 'session.start',
+      timestamp: 1788966000000,
+      data: {
+        selectedModel: 'gpt-5.6-sol',
+        reasoningEffort: 'max',
+        contextTier: 'default',
+      },
+    },
+    {
+      type: 'tool.execution_start',
+      timestamp: 1788966000001,
+      data: {
+        toolName: 'view',
+        arguments: { path: path.join(root, 'src/item.ts') },
+      },
+    },
+    {
+      type: 'tool.execution_start',
+      timestamp: 1788966000002,
+      data: {
+        toolName: 'task',
+        arguments: {
+          name: 'history-reader',
+          description: 'Run the exact automatic history lookup',
+          prompt: 'bounded history lookup',
+          model: 'gpt-5.4-mini',
+          reasoning_effort: 'low',
+          context_tier: 'default',
+          agent_type: 'general-purpose',
+        },
+      },
+    },
+    {
+      type: 'tool.execution_start',
+      timestamp: 1788966000003,
+      data: {
+        toolName: 'task',
+        arguments: {
+          name: 'implementation-coordinator',
+          description: 'Coordinate bounded implementation work',
+          prompt: `\`\`\`budget-dispatch-manifest\n${JSON.stringify({
+            role: 'implementation-coordinator',
+            model: 'gpt-5.4',
+            effort: 'medium',
+            context: 'default',
+            agentType: 'general-purpose',
+          }, null, 2)}\n\`\`\`\nUse the exact prompt ${secret}`,
+          model: 'gpt-5-mini',
+          reasoning_effort: 'medium',
+          context_tier: 'default',
+          agent_type: 'general-purpose',
+        },
+      },
+    },
+    {
+      type: 'tool.execution_start',
+      timestamp: 1788966000004,
+      data: {
+        toolName: 'task',
+        arguments: {
+          name: 'reviewer',
+          description: 'Review the bounded patch',
+          prompt: `\`\`\`budget-dispatch-manifest\n${JSON.stringify({
+            role: 'reviewer',
+            model: 'gpt-5.4',
+            effort: 'medium',
+            context: 'default',
+            agentType: 'code-review',
+          }, null, 2)}\n\`\`\`\nReview only`,
+          model: 'inherit',
+          reasoning_effort: 'medium',
+          context_tier: 'default',
+          agent_type: 'code-review',
+        },
+      },
+    },
+    {
+      type: 'tool.execution_start',
+      timestamp: 1788966000005,
+      data: {
+        toolName: 'task',
+        arguments: {
+          name: 'missing task pins',
+          description: 'No exact model pins',
+          prompt: `plain task ${secret}`,
+        },
+      },
+    },
+    {
+      type: 'tool.execution_start',
+      timestamp: 1788966000006,
+      data: {
+        toolName: 'task',
+        arguments: {
+          name: 'ad hoc task',
+          description: 'Manual task using a persistent Claude pin',
+          prompt: 'plain task',
+          model: 'claude-sonnet-5',
+          reasoning_effort: 'medium',
+          context_tier: 'default',
+          agent_type: 'general-purpose',
+        },
+      },
+    },
+  ].map(item => JSON.stringify(item)).join('\n')}\n`);
+
+  const sessionEnd = recordLifecycleSessionEnd({
+    cwd: root,
+    sessionId: rawSessionId,
+    timestamp: 1788966000010,
+    reason: 'completed',
+  }, { home });
+  assert.equal(sessionEnd.recorded, true);
+  assert.equal(sessionEnd.complianceRecorded, true);
+
+  const stored = readSessionComplianceObservation(
+    home,
+    repositoryHash(root),
+    sha256(`session:${rawSessionId}`),
+  );
+  assert.equal(stored.mode, 'markdown-first-advisory');
+  assert.equal(stored.counts.frontierDirectMechanicalTools['repository-read'], 1);
+  assert.equal(stored.counts.frontierDirectMechanicalToolTotal, 1);
+  assert.equal(stored.counts.automaticDelegation, 1);
+  assert.equal(stored.counts.explicitDelegation, 2);
+  assert.equal(stored.counts.missingTaskPins, 1);
+  assert.equal(stored.counts.inheritTaskPins, 1);
+  assert.equal(stored.counts.modelRoleMismatches, 1);
+  assert.equal(stored.counts.claudePersistentPins, 1);
+  assert.equal(stored.estimatedAvoidableCredits, null);
+  assert.ok(stored.mismatchRoles.includes('implementation-coordinator'));
+  const persisted = JSON.stringify(stored);
+  assert.doesNotMatch(persisted, new RegExp(secret));
+  assert.doesNotMatch(persisted, /Use bounded routing only|plain task|src\/item\.ts/);
+});
+
+test('session-end compliance reporting stays non-blocking on malformed runtime logs and usage data', t => {
+  const root = repository(t);
+  const home = path.join(root, 'invalid-compliance-home');
+  const rawSessionId = '550e8400-e29b-41d4-a716-446655440001';
+  recordLifecyclePromptStart({
+    cwd: root,
+    sessionId: rawSessionId,
+    timestamp: 1788966000000,
+    prompt: 'malformed session logs are tolerated',
+  }, { home });
+
+  const sessionDir = path.join(home, 'session-state', rawSessionId);
+  fs.mkdirSync(sessionDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionDir, 'events.jsonl'), '{"type":');
+  fs.writeFileSync(path.join(sessionDir, 'usage.json'), '{"totalNanoAiu":');
+
+  const preview = buildSessionComplianceObservation(root, {
+    cwd: root,
+    sessionId: rawSessionId,
+    timestamp: 1788966000010,
+    reason: 'completed',
+  }, { home });
+  assert.equal(preview.runtimeEventStatus, 'invalid');
+  assert.equal(preview.usageStatus, 'invalid');
+
+  const recorded = recordLifecycleSessionEnd({
+    cwd: root,
+    sessionId: rawSessionId,
+    timestamp: 1788966000010,
+    reason: 'completed',
+  }, { home });
+  assert.equal(recorded.recorded, true);
+  assert.equal(recorded.complianceRecorded, true);
+  const stored = readSessionComplianceObservation(
+    home,
+    repositoryHash(root),
+    sha256(`session:${rawSessionId}`),
+  );
+  assert.equal(stored.runtimeEventStatus, 'invalid');
+  assert.equal(stored.usageStatus, 'invalid');
+});
+
+test('session-end compliance writes stay atomic, classify optional failures, and still prune expired events', t => {
+  const root = repository(t);
+  const home = path.join(root, 'atomic-compliance-home');
+  const baseOptions = { home };
+  const runtimeOptions = {
+    root,
+    policy: policy(),
+    adapter: { project: 'fixture' },
+    revision: 'c'.repeat(40),
+  };
+  const repositoryId = repositoryHash(root);
+  const complianceDir = path.join(home, 'learning', repositoryId, 'compliance');
+  const eventsDir = path.join(home, 'learning', repositoryId, 'events');
+  fs.mkdirSync(complianceDir, { recursive: true });
+
+  appendSanitizedEvent(home, sanitizeHookEvent('post-tool-use', {
+    cwd: root,
+    sessionId: 'expired-session',
+    timestamp: '2020-01-01T00:00:00.000Z',
+    toolName: 'view',
+    toolArgs: { path: path.join(root, 'src/item.ts') },
+  }, runtimeOptions));
+  const expiredEventShard = path.join(eventsDir, `${sha256('session:expired-session')}.jsonl`);
+  assert.equal(fs.existsSync(expiredEventShard), true);
+
+  const renameSessionId = '550e8400-e29b-41d4-a716-446655440002';
+  recordLifecyclePromptStart({
+    cwd: root,
+    sessionId: renameSessionId,
+    timestamp: 1788966000000,
+    prompt: 'rename-fault coverage',
+  }, baseOptions);
+  const renameComplianceFile = path.join(
+    complianceDir,
+    `${sha256(`session:${renameSessionId}`)}.json`,
+  );
+  const renameBaseline = '{\n  "baseline": "rename"\n}\n';
+  fs.writeFileSync(renameComplianceFile, renameBaseline);
+  const originalRenameSync = fs.renameSync;
+  fs.renameSync = (source, target) => {
+    if (target === renameComplianceFile) {
+      const error = new Error('simulated rename fault');
+      error.code = 'EIO';
+      throw error;
+    }
+    return originalRenameSync(source, target);
+  };
+  try {
+    const result = recordLifecycleSessionEnd({
+      cwd: root,
+      sessionId: renameSessionId,
+      timestamp: 1788966000010,
+      reason: 'completed',
+    }, baseOptions);
+    assert.equal(result.recorded, true);
+    assert.equal(result.eventRecorded, true);
+    assert.equal(result.complianceRecorded, false);
+    assert.deepEqual(result.reportingFailures, [{
+      stage: 'session-end-compliance',
+      classification: 'io-failure',
+    }]);
+    assert.equal(fs.readFileSync(renameComplianceFile, 'utf8'), renameBaseline);
+    assert.deepEqual(fs.readdirSync(complianceDir).filter(name => name.endsWith('.tmp')), []);
+    assert.equal(fs.existsSync(expiredEventShard), false);
+  } finally {
+    fs.renameSync = originalRenameSync;
+  }
+
+  const partialSessionId = '550e8400-e29b-41d4-a716-446655440003';
+  recordLifecyclePromptStart({
+    cwd: root,
+    sessionId: partialSessionId,
+    timestamp: 1788966000100,
+    prompt: 'partial-write coverage',
+  }, baseOptions);
+  const partialComplianceFile = path.join(
+    complianceDir,
+    `${sha256(`session:${partialSessionId}`)}.json`,
+  );
+  const partialBaseline = '{\n  "baseline": "partial"\n}\n';
+  fs.writeFileSync(partialComplianceFile, partialBaseline);
+  const originalWriteFileSync = fs.writeFileSync;
+  fs.writeFileSync = (target, data, options) => {
+    if (typeof target === 'number') {
+      originalWriteFileSync(target, '{"partial"', options);
+      const error = new Error('simulated partial write');
+      error.code = 'EIO';
+      throw error;
+    }
+    return originalWriteFileSync(target, data, options);
+  };
+  try {
+    const result = recordLifecycleSessionEnd({
+      cwd: root,
+      sessionId: partialSessionId,
+      timestamp: 1788966000110,
+      reason: 'completed',
+    }, baseOptions);
+    assert.equal(result.recorded, true);
+    assert.equal(result.eventRecorded, true);
+    assert.equal(result.complianceRecorded, false);
+    assert.deepEqual(result.reportingFailures, [{
+      stage: 'session-end-compliance',
+      classification: 'io-failure',
+    }]);
+    assert.equal(fs.readFileSync(partialComplianceFile, 'utf8'), partialBaseline);
+    assert.deepEqual(fs.readdirSync(complianceDir).filter(name => name.endsWith('.tmp')), []);
+  } finally {
+    fs.writeFileSync = originalWriteFileSync;
+  }
+});
+
 test('task and subagent events infer model-backed work without options', t => {
   const root = repository(t);
   const options = {
@@ -1110,6 +1423,24 @@ test('current valid policy takes precedence over conflicting fallback refs', t =
   ], { cwd: root, encoding: 'utf8' });
   assert.equal(planned.status, 0, planned.stderr);
   assert.equal(JSON.parse(planned.stdout).opportunity, 'current-route');
+});
+
+test('invalid current policy bundles are terminal even when a default-ref fallback is valid', t => {
+  const root = repository(t);
+  const fallbackRevision = execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'], {
+    encoding: 'utf8',
+  }).trim();
+  execFileSync('git', ['-C', root, 'update-ref', 'refs/remotes/origin/main',
+    fallbackRevision]);
+  fs.writeFileSync(path.join(root, '.github/agent-learning.json'),
+    '{"version":1,"project":"fixture","enabled":');
+  assert.throws(() => readEffectiveProjectPolicy(root),
+    /Current repository policy bundle is invalid/);
+  const validation = spawnSync(process.execPath, [
+    script.pathname, 'validate', root,
+  ], { cwd: root, encoding: 'utf8' });
+  assert.equal(validation.status, 1);
+  assert.match(validation.stderr, /Current repository policy bundle is invalid/);
 });
 
 test('invalid and ambiguous fallback policy sources fail closed', t => {
@@ -1524,9 +1855,7 @@ test('learning policy and installed hook enforce automatic build without promoti
     'agentStop',
     'postToolUse',
     'postToolUseFailure',
-    'sessionEnd',
     'subagentStop',
-    'userPromptSubmitted',
   ]);
   for (const entries of Object.values(hook.hooks)) {
     assert.equal(entries.length, 1);

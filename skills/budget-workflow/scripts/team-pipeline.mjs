@@ -17,6 +17,8 @@ import {
   createWorkflowCompletionObservation,
   verifyWorkflowCompletionObservation,
 } from './continuous-improvement.mjs';
+import { USAGE_ACCOUNTING_CATEGORIES } from './evidence/schemas.mjs';
+export { evaluateIntentAcceptanceGate } from './intent-acceptance.mjs';
 
 export const PIPELINE_PHASE_KINDS = new Set([
   'deterministic',
@@ -55,7 +57,7 @@ const MODEL_KINDS = new Set([
   'cheap-worker',
   'medium-review',
 ]);
-const MEDIUM_MODELS = new Set(['claude-sonnet-5', 'gpt-5.6-sol']);
+const MEDIUM_MODELS = new Set(['gpt-5.4']);
 const CHEAP_MODELS = new Set([
   'gpt-5-mini',
   'gpt-5.4-mini',
@@ -70,6 +72,22 @@ const TOPOLOGIES = new Set([
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
+}
+
+function usageCategoryForPhase(phaseKind) {
+  const category = {
+    deterministic: 'deterministic-evidence',
+    'deterministic-release': 'deterministic-evidence',
+    'research-frontier': 'sol-research',
+    'risk-triggered-frontier-review': 'research-adjudication',
+    'spec-planner': 'cheap-curation',
+    'medium-coordinator': 'downstream-implementation',
+    'cheap-worker': 'downstream-implementation',
+    'medium-review': 'downstream-implementation',
+  }[phaseKind];
+  assert(USAGE_ACCOUNTING_CATEGORIES.includes(category),
+    'Pipeline phase usage category is invalid');
+  return category;
 }
 
 function kebab(value, label) {
@@ -354,26 +372,27 @@ export function validateOpportunityPolicyV3(
         triggerCatalog,
       );
       if (conditional.kind === 'research-frontier') {
-        assert(conditional.profile.model === 'gpt-6-astra' &&
+        assert(conditional.profile.model === 'gpt-5.6-sol' &&
           conditional.profile.effort === 'high' &&
           conditional.profile.context === 'default',
         `${opportunity.id}/${conditional.id}: external research profile invalid`);
       }
       if (conditional.kind === 'spec-planner') {
-        assert(conditional.profile.effort === 'high' &&
+        assert(conditional.profile.model === 'gpt-5.4' &&
+          conditional.profile.effort === 'medium' &&
           conditional.profile.context === 'default',
-        `${opportunity.id}/${conditional.id}: spec planner must be high/default`);
+        `${opportunity.id}/${conditional.id}: spec planner must be gpt-5.4 medium/default`);
       }
       if (conditional.kind === 'risk-triggered-frontier-review') {
         assert(conditional.profile.model === 'gpt-5.6-sol' &&
-          conditional.profile.effort === 'max' &&
-          conditional.profile.context === 'long_context',
-        `${opportunity.id}/${conditional.id}: critical review must be Sol max/long_context`);
+          conditional.profile.effort === 'high' &&
+          conditional.profile.context === 'default',
+        `${opportunity.id}/${conditional.id}: critical diagnostics must use receipt-bound Sol research only`);
       } else {
         assert(!(conditional.profile.model === 'gpt-5.6-sol' &&
           conditional.profile.effort === 'max' &&
           conditional.profile.context === 'long_context'),
-        `${opportunity.id}/${conditional.id}: max/long is reserved for risk-triggered review`);
+        `${opportunity.id}/${conditional.id}: max/long frontier residency is not allowed`);
       }
     }
 
@@ -608,6 +627,8 @@ export function createPipelineLegReceipt(input) {
     authorizationHash: input.authorizationHash ?? null,
     configurationEvidence: input.configurationEvidence ?? null,
     usage: input.usage,
+    usageCategory: input.usageCategory ?? usageCategoryForPhase(input.phaseKind),
+    usageLineage: input.usageLineage ?? [],
     state: input.state,
     outcome: input.outcome ?? null,
     durationMs: input.durationMs ?? null,
@@ -682,6 +703,8 @@ export function verifyPipelineLegs(receipts, context) {
       authorityMatches &&
       canonicalJson(receipt.profile) === canonicalJson(expected.profile),
     'Pipeline receipt role, authority or profile differs from policy');
+    assert(receipt.usageCategory === usageCategoryForPhase(receipt.phaseKind),
+      'Pipeline receipt usage category differs from policy');
     assert(receipt.attempt === activeAttempt,
       'Pipeline receipt attempt differs from the active cycle');
     if (receipt.phaseKind === 'deterministic') {
