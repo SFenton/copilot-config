@@ -4,6 +4,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { contained, readAdapter } from './budget.mjs';
+import { LUNA_MEDIUM_DEFAULT_PROFILE } from './model-catalog.mjs';
 import {
   SIDE_EFFECT_LEVELS,
   createReceipt,
@@ -187,10 +188,10 @@ export function validateReleaseMachineV2(machine, project = machine?.project) {
   assert(machine.steps.some(step => step.operation === 'cleanup' && !step.rollbackOnly),
     'Release machine v2 requires unconditional cleanup');
   if (machine.enabled) {
-    assert(machine.supervisor.model === 'gpt-5.4' &&
-      machine.supervisor.effort === 'medium' &&
-      machine.supervisor.context === 'default',
-    'Enabled release machine supervisor must be gpt-5.4 medium/default');
+    assert(machine.supervisor.model === LUNA_MEDIUM_DEFAULT_PROFILE.model &&
+      machine.supervisor.effort === LUNA_MEDIUM_DEFAULT_PROFILE.effort &&
+      machine.supervisor.context === LUNA_MEDIUM_DEFAULT_PROFILE.context,
+    'Enabled release machine supervisor must be gpt-5.6-luna medium/default');
     assert(machine.exception.model === 'gpt-5.6-sol' &&
       machine.exception.effort === 'high' &&
       machine.exception.context === 'default',
@@ -218,10 +219,10 @@ export function validateReleaseMachineV3(machine, project = machine?.project) {
     machine.reviewer.authority === 'review-only',
   'Release machine v3 medium reviewer contract required');
   validateProfile(machine.reviewer.profile, 'release reviewer');
-  assert(machine.reviewer.profile.model === 'gpt-5.4' &&
-    machine.reviewer.profile.effort === 'medium' &&
-    machine.reviewer.profile.context === 'default',
-  'Release machine reviewer must be gpt-5.4 medium/default');
+  assert(machine.reviewer.profile.model === LUNA_MEDIUM_DEFAULT_PROFILE.model &&
+    machine.reviewer.profile.effort === LUNA_MEDIUM_DEFAULT_PROFILE.effort &&
+    machine.reviewer.profile.context === LUNA_MEDIUM_DEFAULT_PROFILE.context,
+  'Release machine reviewer must be gpt-5.6-luna medium/default');
   assert(machine.exception?.role === 'research-frontier' &&
     machine.exception.requiresTriggerReceipt === true,
   'Release machine v3 exception must be trigger-gated research');

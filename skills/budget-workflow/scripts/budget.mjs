@@ -124,14 +124,20 @@ export function route(task, adapter) {
   else if (task.kind === 'research') tier = 'bounded-research';
   const model = {
     deterministic: null,
-    'evidence-worker': 'gpt-5.4-mini',
+    'evidence-worker': 'gpt-5.6-luna',
     'bounded-research': 'gpt-5.6-sol',
-    coordinator: 'gpt-5.4',
+    coordinator: 'gpt-5.6-luna',
     'frontier-research': 'gpt-5.6-sol',
   }[tier];
   return {
     version: VERSION, project: adapter.project, tier, model,
-    effort: model === null ? null : strong || tier === 'bounded-research' ? 'high' : 'medium',
+    effort: model === null
+      ? null
+      : tier === 'evidence-worker'
+        ? 'low'
+        : strong || tier === 'bounded-research'
+          ? 'high'
+          : 'medium',
     context: 'default', riskHits, reasons: {
       novel: task.novel, risk: task.risk, evidenceComplete: task.evidenceComplete,
     },

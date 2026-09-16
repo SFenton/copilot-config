@@ -269,7 +269,7 @@ export function inspectReleaseSkill(text) {
   if (hasDisabledBlock === hasAbsentBlock) reasons.push('missing-machine-block-state');
   if (!/medium model\s+cannot substitute/i.test(text)) reasons.push('missing-machine-warning');
   if (!/ha-release-rollback-or-host-conflict/.test(text)) reasons.push('missing-sol-trigger');
-  if (!/^\s*model:\s*gpt-5\.4\s*$/m.test(text)) reasons.push('missing-gpt-5.4-reviewer');
+  if (!/^\s*model:\s*gpt-5\.6-luna\s*$/m.test(text)) reasons.push('missing-luna-reviewer');
   if (!/`gpt-5\.6-sol` high\/default research may review only/i.test(text)) {
     reasons.push('missing-sol-exception-semantics');
   }
@@ -356,7 +356,7 @@ export function inspectReleaseMachine(worktreePath, adapterResult = null) {
   const reasons = [];
   if (raw?.enabled !== false) reasons.push('machine-enabled');
   if (raw?.operatorAuthorizationRequired !== true) reasons.push('missing-operator-authorization');
-  if (raw?.reviewer?.profile?.model !== 'gpt-5.4' ||
+  if (raw?.reviewer?.profile?.model !== 'gpt-5.6-luna' ||
     raw?.reviewer?.profile?.effort !== 'medium' ||
     raw?.reviewer?.profile?.context !== 'default') {
     reasons.push('stale-reviewer-profile');

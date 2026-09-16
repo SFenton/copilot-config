@@ -28,7 +28,7 @@ Canonical source: `https://github.com/SFenton/copilot-config`.
 5. Evidence gaps are fulfilled exactly once outside frontier, then identical
    delta packets are sent to both researchers.
 6. Implementation always hands back to `budget-workflow` and the project's
-   normal `gpt-5.4` medium/default owner flow.
+   normal `gpt-5.6-luna` medium/default owner flow.
 
 ## Required profiles
 

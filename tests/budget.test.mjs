@@ -22,8 +22,9 @@ function fixture(t) {
 
 test('routing avoids research and delegation for deterministic low-risk work', () => {
   assert.equal(route({ ...task, deterministic: true }, adapter).tier, 'deterministic');
-  assert.equal(route(task, adapter).model, 'gpt-5.4-mini');
-  assert.equal(route({ ...task, kind: 'implementation' }, adapter).model, 'gpt-5.4');
+  assert.equal(route(task, adapter).model, 'gpt-5.6-luna');
+  assert.equal(route(task, adapter).effort, 'low');
+  assert.equal(route({ ...task, kind: 'implementation' }, adapter).model, 'gpt-5.6-luna');
 });
 
 test('novel, unknown, incomplete reasoning and domain risks escalate before cheap flags', () => {

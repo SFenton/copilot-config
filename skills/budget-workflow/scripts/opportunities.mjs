@@ -30,6 +30,7 @@ import {
   bindRecentPromptWorkflow,
   readEffectiveOpportunityPolicyBundle,
 } from './continuous-improvement.mjs';
+import { LUNA_MEDIUM_DEFAULT_PROFILE } from './model-catalog.mjs';
 const STRATEGIES = new Set([
   'deterministic-owner',
   'bounded-worker',
@@ -144,10 +145,10 @@ export function readOpportunityPolicy(root, adapter = readAdapter(root)) {
         `${item.id}: authorized work must retain an explicit owner`);
     }
     if (['explicit-live', 'explicit-release'].includes(item.strategy)) {
-      assert(item.primary.model === 'gpt-5.4' &&
-        item.primary.effort === 'medium' &&
-        item.primary.context === 'default',
-      `${item.id}: live/release coordination must use the qualified gpt-5.4 medium/default owner`);
+      assert(item.primary.model === LUNA_MEDIUM_DEFAULT_PROFILE.model &&
+        item.primary.effort === LUNA_MEDIUM_DEFAULT_PROFILE.effort &&
+        item.primary.context === LUNA_MEDIUM_DEFAULT_PROFILE.context,
+      `${item.id}: live/release coordination must use the qualified gpt-5.6-luna medium/default owner`);
     }
   }
   return policy;
@@ -228,11 +229,9 @@ export function opportunityPlan(task, policy) {
       dispatchProfile: {
         role: 'implementation-coordinator',
         agentType: 'general-purpose',
-        model: 'gpt-5.4',
-        effort: 'medium',
-        context: 'default',
+        ...LUNA_MEDIUM_DEFAULT_PROFILE,
       },
-      instruction: 'Select one exact repository opportunity or dispatch an explicit gpt-5.4 medium/default coordinator manifest; protected sessions must not continue directly.',
+      instruction: 'Select one exact repository opportunity or dispatch an explicit gpt-5.6-luna medium/default coordinator manifest; protected sessions must not continue directly.',
     };
   }
   const item = matches[0];

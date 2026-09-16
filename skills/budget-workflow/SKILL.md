@@ -36,9 +36,10 @@ safety contracts win.
    execution should be delegated to deterministic tools or exact cheaper
    non-Claude roles whenever available. Always pin `model`,
    `reasoning_effort`, `context_tier`, and `agent_type` on every `task`
-   dispatch. Default exact roles are `gpt-5.4` medium/default coordinator and
-   reviewer, project-qualified workers on their evaluated pins, and
-   history/diagnostics/readers on mini/default profiles where supported.
+   dispatch. Default exact roles are `gpt-5.6-luna` medium/default coordinator
+   and reviewer, project-qualified workers on their evaluated pins, and
+   `gpt-5.6-luna` low/default history/diagnostics/readers. Evidence curation
+   remains `gpt-5.4-mini` low/default pending separate qualification.
    Availability fallback is allowed: if the required cheaper worker/tool is
    unavailable, the current owner may proceed directly, preserve the project's
    safety/release gates, and report the routing exception plus any likely
@@ -62,7 +63,7 @@ safety contracts win.
    tandem evidence curation, and Copilot CLI documentation lookups. Safe
    control artifacts are written only through
    `write-control-artifact-current` in the current session `files/` directory.
-   Budget/tandem/hooks/cost/history meta-audits stay native: one `gpt-5.4`
+   Budget/tandem/hooks/cost/history meta-audits stay native: one `gpt-5.6-luna`
    medium/default owner plus deterministic evidence, never automatic tandem.
    Deterministic packets, manifests, and receipts remain useful optimization
    helpers rather than prerequisites for ordinary repository work unless a
@@ -198,7 +199,7 @@ Version 3 `releaseMachine` files execute only registered deterministic tools
 after explicit operator authorization with evidence-bound receipts,
 predefined rollback, post-rollback verification and unconditional cleanup.
 They must remain disabled while any required external or production driver is
-disabled. The project medium reviewer is the exact `gpt-5.4` medium/default
+disabled. The project medium reviewer is the exact `gpt-5.6-luna` medium/default
 profile and cannot authorize side effects. Sol remains research-only behind a
 named trigger receipt such as failed rollback. Models never execute releases.
 

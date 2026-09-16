@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import {
+  LUNA_MEDIUM_DEFAULT_PROFILE,
   SUPPORTED_CONTEXT_VALUES,
   SUPPORTED_EFFORT_VALUES,
 } from './model-catalog.mjs';
@@ -213,7 +214,7 @@ const knownLimitationSchema = z.object({
 }).strict();
 
 const reviewAcceptanceSchema = z.object({
-  role: z.literal('independent-gpt-5.4-review'),
+  role: z.literal('independent-review'),
   reviewerProfile: z.object({
     model: z.string().min(1).max(80),
     effort: effortSchema,
@@ -285,12 +286,12 @@ export const intentAcceptancePacketSchema = z.object({
       message: 'Packet scopeHash mismatch',
     });
   }
-  if (packet.reviewAcceptance.reviewerProfile.model !== 'gpt-5.4' ||
-    packet.reviewAcceptance.reviewerProfile.effort !== 'medium' ||
-    packet.reviewAcceptance.reviewerProfile.context !== 'default') {
+  if (packet.reviewAcceptance.reviewerProfile.model !== LUNA_MEDIUM_DEFAULT_PROFILE.model ||
+    packet.reviewAcceptance.reviewerProfile.effort !== LUNA_MEDIUM_DEFAULT_PROFILE.effort ||
+    packet.reviewAcceptance.reviewerProfile.context !== LUNA_MEDIUM_DEFAULT_PROFILE.context) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'Independent reviewer must be gpt-5.4 medium/default',
+      message: 'Independent reviewer must be gpt-5.6-luna medium/default',
     });
   }
   if (packet.requirementsManifest.capturePhase !== 'pre-implementation') {
@@ -581,7 +582,7 @@ const gapReceiptSchema = z.object({
   acknowledgedLimitationIds: z.array(kebabSchema).max(INTENT_ACCEPTANCE_LIMITS.maxKnownLimitations),
   terminal: z.boolean(),
   nextAction: z.enum([
-    'return-to-gpt-5.4-implementation-owner',
+    'return-to-implementation-owner',
     'user-or-operator-resolution-required',
   ]),
   completionEligibilityGranted: z.literal(false),
@@ -1104,7 +1105,7 @@ export function createIntentAcceptanceOutcomeReceipt(input) {
     terminal: dispatchReceipt.attempt >= INTENT_ACCEPTANCE_MAX_ATTEMPTS,
     nextAction: dispatchReceipt.attempt >= INTENT_ACCEPTANCE_MAX_ATTEMPTS
       ? 'user-or-operator-resolution-required'
-      : 'return-to-gpt-5.4-implementation-owner',
+      : 'return-to-implementation-owner',
     completionEligibilityGranted: false,
     releaseEligibilityGranted: false,
   }, 'receiptHash');
@@ -1158,7 +1159,7 @@ export function evaluateIntentAcceptanceGate(input) {
     reasons.push('deterministic validation has not accepted the change');
   }
   if (input.independentReviewAccepted !== true) {
-    reasons.push('independent gpt-5.4 review has not accepted the change');
+    reasons.push('independent review has not accepted the change');
   }
   if (!input.receipt) {
     reasons.push('user-intent-acceptance has not accepted the packet');

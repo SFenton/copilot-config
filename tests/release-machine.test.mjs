@@ -91,7 +91,7 @@ function v2Fixture(root) {
     opportunity: 'release',
     variant: 'application-release',
     enabled: true,
-    supervisor: { model: 'gpt-5.4', effort: 'medium', context: 'default' },
+    supervisor: { model: 'gpt-5.6-luna', effort: 'medium', context: 'default' },
     exception: { model: 'gpt-5.6-sol', effort: 'high', context: 'default' },
     toolRegistry: {
       version: 1,
@@ -336,7 +336,7 @@ test('enabled release machines reject cheap supervisors and disabled tools', t =
   assert.throws(() => validateReleaseMachineV2({
     ...machine,
     supervisor: { model: 'gpt-5-mini', effort: 'medium', context: 'default' },
-  }, 'sample'), /gpt-5\.4 medium\/default/i);
+  }, 'sample'), /gpt-5\.6-luna medium\/default/i);
   const disabled = {
     id: 'disabled-publish',
     kind: 'disabled',
@@ -385,7 +385,7 @@ test('enabled version 3 fake machines execute without command timeouts', t => {
     reviewer: {
       role: 'medium-review',
       profile: {
-        model: 'gpt-5.4',
+        model: 'gpt-5.6-luna',
         effort: 'medium',
         context: 'default',
       },
@@ -627,7 +627,7 @@ test('fake external release faults route through rollback, cleanup and abnormal 
       opportunity: 'release',
       enabled: true,
       fakeOnly: true,
-      supervisor: { model: 'gpt-5.4', effort: 'medium', context: 'default' },
+      supervisor: { model: 'gpt-5.6-luna', effort: 'medium', context: 'default' },
       exception: { model: 'gpt-5.6-sol', effort: 'high', context: 'default' },
       toolRegistry: {
         version: 1,

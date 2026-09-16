@@ -62,7 +62,7 @@ const FIXTURE_POLICY = {
         coordinator: {
           role: 'medium-coordinator',
           profile: {
-            model: 'gpt-5.4',
+            model: 'gpt-5.6-luna',
             effort: 'medium',
             context: 'default',
           },
@@ -71,7 +71,7 @@ const FIXTURE_POLICY = {
         reviewer: {
           role: 'medium-review',
           profile: {
-            model: 'gpt-5.4',
+            model: 'gpt-5.6-luna',
             effort: 'medium',
             context: 'default',
           },

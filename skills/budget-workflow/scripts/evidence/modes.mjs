@@ -11,8 +11,8 @@ function historyProfile(task) {
   const crossSession = task.crossSessionSynthesis === true ||
     (Array.isArray(task.resolvedSessions) && task.resolvedSessions.length > 1);
   return crossSession
-    ? { model: 'gpt-5.4', effort: 'medium', context: 'default' }
-    : { model: 'gpt-5.4-mini', effort: 'low', context: 'default' };
+    ? { model: 'gpt-5.6-luna', effort: 'medium', context: 'default' }
+    : { model: 'gpt-5.6-luna', effort: 'low', context: 'default' };
 }
 
 export function taskPlan(task, adapter = null) {
@@ -51,10 +51,10 @@ export function taskPlan(task, adapter = null) {
   const profile = historyRequested
     ? historyProfile(task)
     : metaAudit
-      ? { model: 'gpt-5.4', effort: 'medium', context: 'default' }
+      ? { model: 'gpt-5.6-luna', effort: 'medium', context: 'default' }
       : { model: 'gpt-5.6-sol', effort: 'high', context: 'default' };
   const role = historyRequested
-    ? profile.model === 'gpt-5.4-mini'
+    ? profile.effort === 'low'
       ? 'history-curation'
       : 'history-synthesis'
     : metaAudit
@@ -93,9 +93,9 @@ export function taskPlan(task, adapter = null) {
       ? ['Source and history research cannot establish current runtime behavior; use separately authorized project evidence.']
       : [],
     authority: historyRequested
-      ? 'History packets are deterministically prepared first. Any optional model leg is packet-only gpt-5.4-mini low/default for small extracts or gpt-5.4 medium/default for cross-session synthesis.'
+      ? 'History packets are deterministically prepared first. Any optional model leg is packet-only gpt-5.6-luna low/default for small extracts or gpt-5.6-luna medium/default for cross-session synthesis.'
       : metaAudit
-        ? 'Meta-audits stay native: one gpt-5.4 medium/default owner plus deterministic evidence. No tandem or frontier tools are implied.'
+        ? 'Meta-audits stay native: one gpt-5.6-luna medium/default owner plus deterministic evidence. No tandem or frontier tools are implied.'
         : 'Frontier models perform reasoning only. Deterministic evidence collection freezes the packet before the reason-only leg and never grants repository, external, live, release, or implementation authority.',
   };
 }
