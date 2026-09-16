@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { makeScratch } from './helpers/scratch.mjs';
 import {
   appendSanitizedEvent,
@@ -30,14 +31,14 @@ import { mineCandidates }
 import { canonicalJson, sha256 }
   from '../skills/budget-workflow/scripts/workflow.mjs';
 
-const script = new URL(
+const script = fileURLToPath(new URL(
   '../skills/budget-workflow/scripts/continuous-improvement.mjs',
   import.meta.url,
-);
-const plannerScript = new URL(
+));
+const plannerScript = fileURLToPath(new URL(
   '../skills/budget-workflow/scripts/opportunities.mjs',
   import.meta.url,
-);
+));
 
 function policy(project = 'fixture') {
   return {
@@ -220,7 +221,7 @@ function repositoryHash(root) {
 }
 
 function runHook(root, home, event, payload) {
-  return spawnSync(process.execPath, [script.pathname, event], {
+  return spawnSync(process.execPath, [script, event], {
     cwd: root,
     env: { ...process.env, COPILOT_HOME: home },
     input: JSON.stringify({ cwd: root, ...payload }),
@@ -453,7 +454,7 @@ test('planner CLI binds the unique recent prompt hash without a session environm
   const env = { ...process.env, COPILOT_HOME: home };
   delete env.COPILOT_SESSION_ID;
   const planned = spawnSync(process.execPath,
-    [plannerScript.pathname, 'plan', root, taskFile], {
+    [plannerScript, 'plan', root, taskFile], {
       cwd: root,
       env,
       encoding: 'utf8',
@@ -510,7 +511,7 @@ test('duplicate planner binding fails closed while exact opportunity hints remai
   const env = { ...process.env, COPILOT_HOME: home };
   delete env.COPILOT_SESSION_ID;
   const planned = spawnSync(process.execPath,
-    [plannerScript.pathname, 'plan', root, taskFile], {
+    [plannerScript, 'plan', root, taskFile], {
       cwd: root,
       env,
       encoding: 'utf8',
@@ -555,7 +556,7 @@ test('official hook CLI blocks once with top-level camelCase output and exit zer
       pipelineHash: sha256(`pipeline-${index}`),
     }));
     const binding = spawnSync(process.execPath, [
-      script.pathname,
+      script,
       'bind-workflow',
       root,
       workflow.sessionId,
@@ -597,7 +598,7 @@ test('official hook CLI blocks once with top-level camelCase output and exit zer
   const candidatesRoot = path.join(home, 'learning', repositoryHash(root), 'candidates');
   const candidateId = fs.readdirSync(candidatesRoot)[0];
   const prepare = spawnSync(process.execPath,
-    [script.pathname, 'prepare-candidate', root, candidateId], {
+    [script, 'prepare-candidate', root, candidateId], {
       cwd: root,
       env: { ...process.env, COPILOT_HOME: home },
       encoding: 'utf8',
@@ -619,7 +620,7 @@ test('official hook CLI blocks once with top-level camelCase output and exit zer
     evidenceHash: sha256(evidenceUnsigned),
   }));
   const recorded = spawnSync(process.execPath, [
-    script.pathname,
+    script,
     'record-evidence',
     root,
     candidateId,
@@ -672,7 +673,7 @@ test('disabled opportunity plans cannot bind or trigger incubation', t => {
     enabled: false,
   }));
   const binding = spawnSync(process.execPath, [
-    script.pathname,
+    script,
     'bind-workflow',
     root,
     'disabled',
@@ -1222,7 +1223,7 @@ test('candidate ledger and workflow completion persist with integrity', t => {
   const receiptFile = path.join(root, 'completion.json');
   fs.writeFileSync(receiptFile, JSON.stringify(receipt));
   const result = spawnSync(process.execPath,
-    [script.pathname, 'record-completion', root, receiptFile], {
+    [script, 'record-completion', root, receiptFile], {
       cwd: root,
       env: { ...process.env, COPILOT_HOME: home },
       encoding: 'utf8',
@@ -1269,7 +1270,7 @@ test('ambiguous candidate priority must be selected before preparation', t => {
   };
   persistCandidateLedger(root, candidate, {}, { home });
   const before = spawnSync(process.execPath,
-    [script.pathname, 'prepare-candidate', root, candidate.id], {
+    [script, 'prepare-candidate', root, candidate.id], {
       cwd: root,
       env: { ...process.env, COPILOT_HOME: home },
       encoding: 'utf8',
@@ -1277,7 +1278,7 @@ test('ambiguous candidate priority must be selected before preparation', t => {
   assert.equal(before.status, 1);
   assert.match(before.stderr, /priority must be explicitly selected/);
   const selected = spawnSync(process.execPath, [
-    script.pathname,
+    script,
     'select-priority',
     root,
     candidate.id,
@@ -1293,7 +1294,7 @@ test('ambiguous candidate priority must be selected before preparation', t => {
   assert.equal(ledger.candidate.class, 'reusable-skill');
   assert.equal(ledger.candidate.destination, 'skills');
   const prepared = spawnSync(process.execPath,
-    [script.pathname, 'prepare-candidate', root, candidate.id], {
+    [script, 'prepare-candidate', root, candidate.id], {
       cwd: root,
       env: { ...process.env, COPILOT_HOME: home },
       encoding: 'utf8',
@@ -1356,7 +1357,7 @@ test('old branches load the unique valid default-ref learning policy', t => {
     prompt: question,
   }).status, 0);
   const validated = spawnSync(process.execPath, [
-    plannerScript.pathname, 'validate', root,
+    plannerScript, 'validate', root,
   ], {
     cwd: root,
     env: { ...process.env, COPILOT_HOME: home },
@@ -1369,7 +1370,7 @@ test('old branches load the unique valid default-ref learning policy', t => {
   const env = { ...process.env, COPILOT_HOME: home };
   delete env.COPILOT_SESSION_ID;
   const planned = spawnSync(process.execPath, [
-    plannerScript.pathname, 'plan', root, taskFile,
+    plannerScript, 'plan', root, taskFile,
   ], {
     cwd: root,
     env,
@@ -1419,7 +1420,7 @@ test('current valid policy takes precedence over conflicting fallback refs', t =
   const taskFile = path.join(root, 'current-task.json');
   fs.writeFileSync(taskFile, JSON.stringify({ question: 'Use the current route' }));
   const planned = spawnSync(process.execPath, [
-    plannerScript.pathname, 'plan', root, taskFile,
+    plannerScript, 'plan', root, taskFile,
   ], { cwd: root, encoding: 'utf8' });
   assert.equal(planned.status, 0, planned.stderr);
   assert.equal(JSON.parse(planned.stdout).opportunity, 'current-route');
@@ -1437,7 +1438,7 @@ test('invalid current policy bundles are terminal even when a default-ref fallba
   assert.throws(() => readEffectiveProjectPolicy(root),
     /Current repository policy bundle is invalid/);
   const validation = spawnSync(process.execPath, [
-    script.pathname, 'validate', root,
+    script, 'validate', root,
   ], { cwd: root, encoding: 'utf8' });
   assert.equal(validation.status, 1);
   assert.match(validation.stderr, /Current repository policy bundle is invalid/);
@@ -1467,7 +1468,7 @@ test('invalid and ambiguous fallback policy sources fail closed', t => {
     `${mainRevision}^`]);
   assert.throws(() => readEffectiveProjectPolicy(ambiguous), /ambiguous/);
   const plannerValidation = spawnSync(process.execPath, [
-    plannerScript.pathname, 'validate', ambiguous,
+    plannerScript, 'validate', ambiguous,
   ], { cwd: ambiguous, encoding: 'utf8' });
   assert.equal(plannerValidation.status, 1);
   assert.match(plannerValidation.stderr, /ambiguous/);
@@ -1574,7 +1575,7 @@ test('incubation binds a candidate to one worktree until matching tree evidence'
   };
   persistCandidateLedger(main, candidate, {}, { home });
   const prepared = spawnSync(process.execPath, [
-    script.pathname, 'prepare-candidate', main, candidate.id,
+    script, 'prepare-candidate', main, candidate.id,
   ], {
     cwd: main,
     env: { ...process.env, COPILOT_HOME: home },
@@ -1599,7 +1600,7 @@ test('incubation binds a candidate to one worktree until matching tree evidence'
     evidenceHash: sha256(integrationUnsigned),
   }));
   const rejected = spawnSync(process.execPath, [
-    script.pathname, 'record-evidence', linked, candidate.id,
+    script, 'record-evidence', linked, candidate.id,
     'integration', integrationFile,
   ], {
     cwd: linked,
@@ -1622,7 +1623,7 @@ test('incubation binds a candidate to one worktree until matching tree evidence'
     evidenceHash: sha256(scopeUnsigned),
   }));
   const accepted = spawnSync(process.execPath, [
-    script.pathname, 'record-evidence', linked, candidate.id,
+    script, 'record-evidence', linked, candidate.id,
     'scope-tree', scopeFile,
   ], {
     cwd: linked,
@@ -1698,7 +1699,7 @@ test('event backfill is private, idempotent, turn-mapped and opportunity hinted'
   fs.writeFileSync(eventsFile,
     `${events.map(event => ` ${JSON.stringify(event)} `).join('\n')}\n`);
   const rerun = spawnSync(process.execPath, [
-    script.pathname, 'backfill-events', root, eventsFile,
+    script, 'backfill-events', root, eventsFile,
   ], {
     cwd: root,
     env: { ...process.env, COPILOT_HOME: home },
@@ -1805,7 +1806,7 @@ test('event backfill accepts only enabled privacy-safe opportunity overrides', t
     /OPERATOR_PRIVATE_CLASSIFICATION|private-override-session/);
 
   const rerun = spawnSync(process.execPath, [
-    script.pathname,
+    script,
     'backfill-events',
     root,
     eventsFile,
@@ -1822,7 +1823,7 @@ test('event backfill accepts only enabled privacy-safe opportunity overrides', t
 
   for (const id of ['unknown-route', 'disabled-route']) {
     const rejected = spawnSync(process.execPath, [
-      script.pathname,
+      script,
       'backfill-events',
       root,
       eventsFile,

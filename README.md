@@ -51,6 +51,9 @@ lifecycle hook, the sanitized observability hooks, and
 unknown symlinks. It writes a rollback receipt before changes. Existing
 unrelated skills, hooks, model defaults, credentials and permissions are not
 modified. Links point at this checkout: retain the worktree until promoted.
+Hook commands honor `COPILOT_HOME` and provide Bash implementations for Linux
+and macOS plus PowerShell implementations for Windows.
+Shared CI runs the repository and internal skill suites on all three platforms.
 
 The short personal instruction makes budget-workflow the default for substantive
 engineering/research tasks: ask normally, without explicitly naming the skill.

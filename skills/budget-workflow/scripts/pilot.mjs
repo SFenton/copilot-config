@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { packet, readAdapter, route } from './budget.mjs';
 import { run } from './run-leaf.mjs';
 import { normalizeUsage } from './usage.mjs';
@@ -102,7 +103,8 @@ export function report(directory, ids) {
   });
 }
 
-if (process.argv[1] && fs.realpathSync(process.argv[1]) === fs.realpathSync(new URL(import.meta.url).pathname)) {
+if (process.argv[1] &&
+  fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url))) {
   try {
     const [command, ...args] = process.argv.slice(2);
     if (command === 'prepare') prepare(JSON.parse(fs.readFileSync(args[0], 'utf8')), args[1]);

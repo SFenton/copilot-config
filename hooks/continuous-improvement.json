@@ -4,28 +4,32 @@
     "postToolUse": [
       {
         "type": "command",
-        "bash": "node \"$HOME/.copilot/skills/budget-workflow/scripts/continuous-improvement.mjs\" post-tool-use",
+        "bash": "node \"${COPILOT_HOME:-$HOME/.copilot}/skills/budget-workflow/scripts/continuous-improvement.mjs\" post-tool-use",
+        "powershell": "$copilotHome = if ($env:COPILOT_HOME) { $env:COPILOT_HOME } else { Join-Path $HOME '.copilot' }; node (Join-Path $copilotHome 'skills/budget-workflow/scripts/continuous-improvement.mjs') post-tool-use",
         "timeoutSec": 5
       }
     ],
     "postToolUseFailure": [
       {
         "type": "command",
-        "bash": "node \"$HOME/.copilot/skills/budget-workflow/scripts/continuous-improvement.mjs\" post-tool-use-failure",
+        "bash": "node \"${COPILOT_HOME:-$HOME/.copilot}/skills/budget-workflow/scripts/continuous-improvement.mjs\" post-tool-use-failure",
+        "powershell": "$copilotHome = if ($env:COPILOT_HOME) { $env:COPILOT_HOME } else { Join-Path $HOME '.copilot' }; node (Join-Path $copilotHome 'skills/budget-workflow/scripts/continuous-improvement.mjs') post-tool-use-failure",
         "timeoutSec": 5
       }
     ],
     "subagentStop": [
       {
         "type": "command",
-        "bash": "node \"$HOME/.copilot/skills/budget-workflow/scripts/continuous-improvement.mjs\" subagent-stop",
+        "bash": "node \"${COPILOT_HOME:-$HOME/.copilot}/skills/budget-workflow/scripts/continuous-improvement.mjs\" subagent-stop",
+        "powershell": "$copilotHome = if ($env:COPILOT_HOME) { $env:COPILOT_HOME } else { Join-Path $HOME '.copilot' }; node (Join-Path $copilotHome 'skills/budget-workflow/scripts/continuous-improvement.mjs') subagent-stop",
         "timeoutSec": 5
       }
     ],
     "agentStop": [
       {
         "type": "command",
-        "bash": "node \"$HOME/.copilot/skills/budget-workflow/scripts/continuous-improvement.mjs\" agent-stop",
+        "bash": "node \"${COPILOT_HOME:-$HOME/.copilot}/skills/budget-workflow/scripts/continuous-improvement.mjs\" agent-stop",
+        "powershell": "$copilotHome = if ($env:COPILOT_HOME) { $env:COPILOT_HOME } else { Join-Path $HOME '.copilot' }; node (Join-Path $copilotHome 'skills/budget-workflow/scripts/continuous-improvement.mjs') agent-stop",
         "timeoutSec": 10
       }
     ]

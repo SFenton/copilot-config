@@ -5,6 +5,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { hookDecision as oversizedReadDecision } from './budget.mjs';
+import { fsyncDirectory } from './durability.mjs';
 import { AUTOMATIC_ROUTE_ROLE_CATALOG, SUPPORTED_MODELS } from './model-catalog.mjs';
 import {
   DISPATCH_ROLE_CATALOG,
@@ -514,15 +515,6 @@ function safeRepositoryRoot(start) {
     const parent = path.dirname(current);
     if (parent === current) return null;
     current = parent;
-  }
-}
-
-function fsyncDirectory(directory) {
-  const fd = fs.openSync(directory, 'r');
-  try {
-    fs.fsyncSync(fd);
-  } finally {
-    fs.closeSync(fd);
   }
 }
 
@@ -3759,8 +3751,13 @@ export function authorizeIntentAcceptanceReceipt(input, options = {}) {
 function validateReasonOnlyLeafCommand(call, envelope, payload, promptState, home) {
   const command = String(call.args.command ?? '').trim();
   const tokens = tokenizeCommand(command);
-  if (tokens[0] !== 'node' || tokens.length < 4 ||
-    !/(?:^|\/)run-leaf\.mjs$/.test(tokens[1])) {
+  if (tokens[0] !== 'node' || tokens.length !== 4) {
+    return null;
+  }
+  const scriptFile = resolveCommandFile(payload.cwd, tokens[1]);
+  const scriptStat = fs.statSync(scriptFile, { throwIfNoEntry: false });
+  if (!scriptStat?.isFile() ||
+    fs.realpathSync(scriptFile) !== KNOWN_SCRIPT_REALPATHS.runLeaf) {
     return null;
   }
   const requestPath = tokens[2];
