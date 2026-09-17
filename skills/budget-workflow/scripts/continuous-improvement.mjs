@@ -6,6 +6,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { contained, readAdapter } from './budget.mjs';
+import { fsyncDirectory } from './durability.mjs';
 import { AUTOMATIC_ROUTE_ROLE_CATALOG } from './model-catalog.mjs';
 import {
   DISPATCH_ROLE_CATALOG,
@@ -366,15 +367,6 @@ function sessionComplianceFile(home, repositoryHash, sessionId) {
 
 function readJson(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
-}
-
-function fsyncDirectory(directory) {
-  const fd = fs.openSync(directory, 'r');
-  try {
-    fs.fsyncSync(fd);
-  } finally {
-    fs.closeSync(fd);
-  }
 }
 
 function writePrivateJson(file, value, options = {}) {

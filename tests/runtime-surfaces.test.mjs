@@ -2,8 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = path.resolve(new URL('..', import.meta.url).pathname);
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const FORBIDDEN_REPOSITORY_PATTERNS = [
   /\bha-react\b/i,
   /\bha-sfenton-react-dash\b/i,
@@ -65,7 +66,8 @@ test('explicit integration data and fixtures may retain repository names and gen
 });
 
 test('budget contracts workflow requires manifest-backed integration on normal CI without repository coupling', () => {
-  const source = text('.github/workflows/budget-contracts.yml');
+  const source = text('.github/workflows/budget-contracts.yml')
+    .replace(/\r\n/g, '\n');
   assert.match(source, /\n\s*pull_request:\n/);
   assert.match(source, /\n\s*push:\n/);
   assert.match(source, /\n\s*workflow_call:\n/);
@@ -74,4 +76,8 @@ test('budget contracts workflow requires manifest-backed integration on normal C
   assert.match(source, /CROSS_REPO_READ_TOKEN/);
   assert.match(source,
     /Manifest-backed exact-ref integration manifest is required on pull_request, push, workflow_dispatch, and workflow_call runs\./);
+  for (const runner of ['ubuntu-latest', 'macos-latest', 'windows-latest']) {
+    assert.match(source, new RegExp(runner));
+  }
+  assert.match(source, /npm run test:skills/);
 });
