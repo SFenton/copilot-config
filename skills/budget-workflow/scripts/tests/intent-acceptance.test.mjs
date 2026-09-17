@@ -151,7 +151,7 @@ function makeIntentPacket(overrides = {}) {
       { id: 'build-check', kind: 'build', summary: 'Build succeeds for the changed surface' },
     ],
     reviewRefs: overrides.reviewRefs ?? [
-      { id: 'review-accepted', kind: 'review-acceptance', summary: 'Independent GPT-5.4 review accepted the substantive change' },
+      { id: 'review-accepted', kind: 'review-acceptance', summary: 'Independent review accepted the substantive change' },
       { id: 'resolved-finding-1', kind: 'resolved-finding', summary: 'Resolved reviewer finding about validation state reset' },
     ],
     coverageMatrix: overrides.coverageMatrix ?? [
@@ -176,8 +176,8 @@ function makeIntentPacket(overrides = {}) {
     ],
     changeSummary: overrides.changeSummary ?? 'Add inline invalid-save feedback without changing the successful save path.',
     reviewAcceptance: overrides.reviewAcceptance ?? {
-      role: 'independent-gpt-5.4-review',
-      reviewerProfile: { model: 'gpt-5.4', effort: 'medium', context: 'default' },
+      role: 'independent-review',
+      reviewerProfile: { model: 'gpt-5.6-luna', effort: 'medium', context: 'default' },
       acceptanceRefId: 'review-accepted',
       resolvedFindingRefIds: ['resolved-finding-1'],
     },
@@ -294,8 +294,8 @@ test('packets enforce prompt-bound manifests, hashes, and the hard size cap', ()
       summary: `Covered ${'c'.repeat(180)}`,
     })),
     reviewAcceptance: {
-      role: 'independent-gpt-5.4-review',
-      reviewerProfile: { model: 'gpt-5.4', effort: 'medium', context: 'default' },
+      role: 'independent-review',
+      reviewerProfile: { model: 'gpt-5.6-luna', effort: 'medium', context: 'default' },
       acceptanceRefId: 'review-accepted',
       resolvedFindingRefIds: ['resolved-finding-1'],
     },
@@ -609,7 +609,7 @@ test('selected-model dispatch binds the trusted session profile and allows Sol o
     intentAcceptanceAuthorized: false,
     intent: { packetWorkflowVersion: 2 },
     plan: { status: 'ready', opportunity: 'review' },
-  }), /must use gpt-5\.4\/medium\/default/);
+  }), /must use gpt-5\.6-luna\/medium\/default/);
 });
 
 test('supported selected model ids stay aligned with the current local catalog for intent acceptance', () => {
@@ -709,7 +709,7 @@ test('explicitly selected Astra xhigh sessions are accepted only for user-intent
     intentAcceptanceAuthorized: false,
     intent: { packetWorkflowVersion: 2 },
     plan: { status: 'ready', opportunity: 'review' },
-  }), /must use gpt-5\.4\/medium\/default/);
+  }), /must use gpt-5\.6-luna\/medium\/default/);
 });
 
 test('unavailable or mismatched selected models fail closed without substitution', () => {

@@ -35,10 +35,11 @@ Route by explicit role, not by the ambient interactive model:
   exact cheaper non-Claude roles whenever they are available.
 - Always pin `model`, `reasoning_effort`, `context_tier`, and `agent_type` on
   every `task` dispatch.
-- Default exact roles are `gpt-5.4` medium/default coordinator and reviewer,
-  project-qualified workers on their evaluated pins, history/diagnostics/readers
-  on mini/default profiles where supported, and explicit tandem on Sol
-  max/default plus Astra medium/default.
+- Default exact roles are `gpt-5.6-luna` medium/default coordinator and
+  reviewer, project-qualified workers on their evaluated pins, and
+  `gpt-5.6-luna` low/default history/diagnostics/readers. Evidence curation
+  remains `gpt-5.4-mini` low/default pending separate qualification. Explicit
+  tandem remains Sol max/default plus Astra medium/default.
 - Availability fallback: delegation is preferred, but it must never prevent
   starting or resuming a session, invoking a skill, using explicit operator
   tools, delegating work, or calling `task_complete`. If the required cheaper

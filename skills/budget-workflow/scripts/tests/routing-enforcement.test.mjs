@@ -158,35 +158,35 @@ const AUTOMATIC_TASK_IDENTITIES = Object.freeze({
   'history-reader': {
     name: 'automatic-history-reader',
     description: 'Run the exact automatic history lookup',
-    model: 'gpt-5.4-mini',
+    model: 'gpt-5.6-luna',
     effort: 'low',
     context: 'default',
   },
   'history-auditor': {
     name: 'automatic-history-auditor',
     description: 'Run the exact automatic history audit',
-    model: 'gpt-5.4',
+    model: 'gpt-5.6-luna',
     effort: 'medium',
     context: 'default',
   },
   'host-diagnostics-reader': {
     name: 'automatic-host-diagnostics-reader',
     description: 'Run the exact read-only host diagnostics route',
-    model: 'gpt-5.4-mini',
+    model: 'gpt-5.6-luna',
     effort: 'low',
     context: 'default',
   },
   'repository-reader': {
     name: 'automatic-repository-reader',
     description: 'Inspect the current repository with exact read-only tools',
-    model: 'gpt-5.4-mini',
+    model: 'gpt-5.6-luna',
     effort: 'low',
     context: 'default',
   },
   'external-evidence-reader': {
     name: 'automatic-external-evidence-reader',
     description: 'Collect exact read-only external evidence',
-    model: 'gpt-5.4-mini',
+    model: 'gpt-5.6-luna',
     effort: 'low',
     context: 'default',
   },
@@ -420,7 +420,7 @@ function makeIntentAcceptancePacket({ workflowId, sessionId, promptHash }) {
       { id: 'runtime-observation', kind: 'runtime-observation', summary: 'Hook fixtures confirm protected decisions' },
     ],
     reviewRefs: [
-      { id: 'review-acceptance', kind: 'review-acceptance', summary: 'Independent GPT-5.4 review accepted the remediation' },
+      { id: 'review-acceptance', kind: 'review-acceptance', summary: 'Independent review accepted the remediation' },
     ],
     coverageMatrix: [
       {
@@ -438,8 +438,8 @@ function makeIntentAcceptancePacket({ workflowId, sessionId, promptHash }) {
     ],
     changeSummary: 'Final routing remediation closes trust, privacy, and durability gaps.',
     reviewAcceptance: {
-      role: 'independent-gpt-5.4-review',
-      reviewerProfile: { model: 'gpt-5.4', effort: 'medium', context: 'default' },
+      role: 'independent-review',
+      reviewerProfile: { model: 'gpt-5.6-luna', effort: 'medium', context: 'default' },
       acceptanceRefId: 'review-acceptance',
       resolvedFindingRefIds: [],
     },
@@ -712,7 +712,7 @@ test('automatic reader routes accept exact direct tasks and activate scoped chil
     prompt: 'Audit the bounded routing and cost history only.',
   }), { home });
   assert.equal(auditChildState.classification, 'subagent-active');
-  assert.equal(auditChildState.model, 'gpt-5.4');
+  assert.equal(auditChildState.model, 'gpt-5.6-luna');
 
   const hostSessionId = 'ababab12-0000-4000-8000-000000000003';
   writeSessionEvents(home, hostSessionId, 'gpt-5.6-sol', 'max');
@@ -1167,7 +1167,7 @@ test('same-session helper routing trusts only the validated host envelope sessio
     scope: ['api'],
     role: 'implementation-coordinator',
     agentType: 'general-purpose',
-    model: 'gpt-5.4',
+    model: 'gpt-5.6-luna',
     effort: 'medium',
     context: 'default',
     allowedToolCategories: ['repository-read', 'repository-edit', 'tests'],
@@ -1368,7 +1368,7 @@ test('task dispatch rejects missing, inherit, and forbidden frontier pins', () =
   const repo = makeTempDir('routing-repo-');
   makeRepo(repo, 'ha-react');
   const sessionId = '11111111-1111-4111-8111-111111111111';
-  writeSessionEvents(home, sessionId, 'gpt-5.4', 'medium');
+  writeSessionEvents(home, sessionId, 'gpt-5.6-luna', 'medium');
   const state = promptStartState({ sessionId, prompt: 'delegate implementation' }, { home });
   const manifest = createDispatchManifest({
     sessionId,
@@ -1378,7 +1378,7 @@ test('task dispatch rejects missing, inherit, and forbidden frontier pins', () =
     scope: ['src'],
     role: 'implementation-coordinator',
     agentType: 'general-purpose',
-    model: 'gpt-5.4',
+    model: 'gpt-5.6-luna',
     effort: 'medium',
     context: 'default',
     allowedToolCategories: ['repository-read', 'repository-edit', 'tests'],
@@ -1936,7 +1936,7 @@ test('prompt rebinding is idempotent, survives missing events, and invalidates s
   const repo = makeTempDir('routing-repo-');
   makeRepo(repo, 'ha-react');
   const sessionId = 'abcde123-0000-4000-8000-000000000007';
-  writeSessionEvents(home, sessionId, 'gpt-5.4', 'medium');
+  writeSessionEvents(home, sessionId, 'gpt-5.6-luna', 'medium');
 
   const first = promptStartState({ sessionId, prompt: 'first prompt' }, { home });
   const firstAgain = promptStartState({ sessionId, prompt: 'first prompt' }, { home });
@@ -1949,7 +1949,7 @@ test('prompt rebinding is idempotent, survives missing events, and invalidates s
     scope: ['api'],
     role: 'implementation-coordinator',
     agentType: 'general-purpose',
-    model: 'gpt-5.4',
+    model: 'gpt-5.6-luna',
     effort: 'medium',
     context: 'default',
     allowedToolCategories: ['repository-read', 'repository-edit', 'tests'],
@@ -1971,7 +1971,7 @@ test('prompt rebinding is idempotent, survives missing events, and invalidates s
   const second = promptStartState({ sessionId, prompt: 'second prompt after resume' }, { home });
   assert.notEqual(second.workflowId, first.workflowId);
   assert.equal(second.promptIndex, first.promptIndex + 1);
-  assert.equal(second.model, 'gpt-5.4');
+  assert.equal(second.model, 'gpt-5.6-luna');
   assert.equal(second.profileSource, 'session-routing-state');
 
   const staleTask = hookDecision({
@@ -1980,7 +1980,7 @@ test('prompt rebinding is idempotent, survives missing events, and invalidates s
     toolName: 'task',
     toolArgs: {
       prompt: manifest.taskPrompt,
-      model: 'gpt-5.4',
+      model: 'gpt-5.6-luna',
       agent_type: 'general-purpose',
       context_tier: 'default',
       reasoning_effort: 'medium',
@@ -2136,6 +2136,19 @@ test('operator override receipts reject forged, tool-mismatched, and out-of-scop
   }, { home });
   assert.equal(wrongScope.permissionDecision, 'deny');
   assert.match(wrongScope.permissionDecisionReason, /path scope/);
+
+  const siblingPrefixScope = hookDecision({
+    sessionId,
+    cwd: repo,
+    toolName: 'view',
+    toolArgs: {
+      path: path.join(repo, 'api-private', 'secret.ts'),
+      view_range: [1, 1],
+      operatorOverrideReceipt: receipt,
+    },
+  }, { home });
+  assert.equal(siblingPrefixScope.permissionDecision, 'deny');
+  assert.match(siblingPrefixScope.permissionDecisionReason, /path scope/);
 
   const tampered = structuredClone(receipt);
   tampered.allowedToolNames = ['web_search'];
@@ -2435,7 +2448,7 @@ test('routing state writers keep private POSIX modes and registered child hashes
 
 test('atomic routing writes leave prior state intact and clean temp files on rename or partial-write faults', () => {
   const home = makeTempDir('routing-home-');
-  writeSessionEvents(home, '44444444-4444-4444-8444-444444444445', 'gpt-5.4', 'medium');
+  writeSessionEvents(home, '44444444-4444-4444-8444-444444444445', 'gpt-5.6-luna', 'medium');
   promptStartState({ sessionId: '44444444-4444-4444-8444-444444444445', prompt: 'fault test prompt' }, { home });
   setRoutingMode({ mode: 'audit' }, { home });
 
@@ -2670,7 +2683,7 @@ test('routing readers reject truncated config, state, ledger, child, override, f
   }
 });
 
-test('team pipeline medium policy accepts gpt-5.4 and rejects Claude/Sol ownership', () => {
+test('team pipeline medium policy accepts Luna and rejects Claude/Sol ownership', () => {
   const registry = makeToolRegistry('test-project');
   const basePolicy = {
     version: 3,
@@ -2698,8 +2711,8 @@ test('team pipeline medium policy accepts gpt-5.4 and rejects Claude/Sol ownersh
           topology: 'medium-owner-only',
           trustTier: 'provisional-staging',
           maxRevisions: 1,
-          coordinator: { role: 'medium-coordinator', profile: { model: 'gpt-5.4', effort: 'medium', context: 'default' }, evidenceStatus: 'provisional' },
-          reviewer: { role: 'medium-review', profile: { model: 'gpt-5.4', effort: 'medium', context: 'default' }, evidenceStatus: 'provisional' },
+          coordinator: { role: 'medium-coordinator', profile: { model: 'gpt-5.6-luna', effort: 'medium', context: 'default' }, evidenceStatus: 'provisional' },
+          reviewer: { role: 'medium-review', profile: { model: 'gpt-5.6-luna', effort: 'medium', context: 'default' }, evidenceStatus: 'provisional' },
           workerCandidate: { role: 'cheap-worker', enabled: false, profile: { model: 'mai-code-1.1-flash', effort: 'medium', context: 'default' }, evidenceStatus: 'disabled', currentCases: 0, authority: 'staging-only' },
           repositoryApply: { authority: 'operator', enabled: false },
         },
@@ -2727,7 +2740,7 @@ test('team pipeline medium policy accepts gpt-5.4 and rejects Claude/Sol ownersh
   }), /coordinator must be a project-qualified medium\/default profile/);
 });
 
-test('release machine v3 requires gpt-5.4 reviewer and Sol research exception', () => {
+test('release machine v3 requires Luna reviewer and Sol research exception', () => {
   const registry = makeToolRegistry('test-project');
   const machine = {
     version: 3,
@@ -2739,7 +2752,7 @@ test('release machine v3 requires gpt-5.4 reviewer and Sol research exception', 
     reviewer: {
       role: 'medium-review',
       authority: 'review-only',
-      profile: { model: 'gpt-5.4', effort: 'medium', context: 'default' },
+      profile: { model: 'gpt-5.6-luna', effort: 'medium', context: 'default' },
     },
     exception: {
       role: 'research-frontier',
@@ -2759,7 +2772,7 @@ test('release machine v3 requires gpt-5.4 reviewer and Sol research exception', 
   const invalid = structuredClone(machine);
   invalid.reviewer.profile.model = 'gpt-5.6-sol';
   assert.throws(() => validateReleaseMachineV3(invalid, 'test-project'),
-    /gpt-5\.4 medium\/default/);
+    /gpt-5\.6-luna medium\/default/);
 });
 
 test('large session event files are processed from a bounded tail', () => {

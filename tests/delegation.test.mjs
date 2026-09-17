@@ -356,7 +356,7 @@ function reviewedApplyFixture(t) {
         coordinator: {
           role: 'medium-coordinator',
           profile: {
-            model: 'gpt-5.4',
+            model: 'gpt-5.6-luna',
             effort: 'medium',
             context: 'default',
           },
@@ -365,7 +365,7 @@ function reviewedApplyFixture(t) {
         reviewer: {
           role: 'medium-review',
           profile: {
-            model: 'gpt-5.4',
+            model: 'gpt-5.6-luna',
             effort: 'medium',
             context: 'default',
           },
@@ -406,7 +406,7 @@ function reviewedApplyFixture(t) {
         id: 'binding-spec',
         kind: 'spec-planner',
         profile: {
-          model: 'gpt-5.4',
+          model: 'gpt-5.6-luna',
           effort: 'medium',
           context: 'default',
         },
@@ -544,8 +544,8 @@ function reviewedApplyFixture(t) {
       sandboxImageId: imageId,
       sandboxDependencyPolicyHash: sha256([]),
       capabilityQualificationHash: null,
-      coordinator: { model: 'gpt-5.4', effort: 'medium', context: 'default' },
-      reviewer: { model: 'gpt-5.4', effort: 'medium', context: 'default' },
+      coordinator: { model: 'gpt-5.6-luna', effort: 'medium', context: 'default' },
+      reviewer: { model: 'gpt-5.6-luna', effort: 'medium', context: 'default' },
       trustTier: 'reviewed-application',
       pipelineHash,
     },

@@ -292,7 +292,7 @@ test('resolved model configuration requires exact event evidence', () => {
 });
 
 test('resolved model configuration accepts the current CLI telemetry shape only when it is exact and complete', () => {
-  const expected = { model: 'gpt-5.4', effort: 'medium', context: 'default' };
+  const expected = { model: 'gpt-5.6-luna', effort: 'medium', context: 'default' };
   const events = [
     {
       type: 'model.call_start',

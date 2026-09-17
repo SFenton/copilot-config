@@ -306,12 +306,12 @@ test('invalid current opportunity declarations are terminal even when a default-
           maxRevisions: 1,
           coordinator: {
             role: 'medium-coordinator',
-            profile: { model: 'gpt-5.4', effort: 'medium', context: 'default' },
+            profile: { model: 'gpt-5.6-luna', effort: 'medium', context: 'default' },
             evidenceStatus: 'provisional',
           },
           reviewer: {
             role: 'medium-review',
-            profile: { model: 'gpt-5.4', effort: 'medium', context: 'default' },
+            profile: { model: 'gpt-5.6-luna', effort: 'medium', context: 'default' },
             evidenceStatus: 'provisional',
           },
           workerCandidate: {

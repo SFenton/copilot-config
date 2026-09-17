@@ -37,15 +37,21 @@ export const SUPPORTED_EFFORTS = new Set(SUPPORTED_EFFORT_VALUES);
 export const SUPPORTED_CONTEXT_VALUES = Object.freeze(['default', 'long_context']);
 export const SUPPORTED_CONTEXTS = new Set(SUPPORTED_CONTEXT_VALUES);
 
-const CHEAP_DEFAULT_PROFILE = Object.freeze({
-  model: 'gpt-5.4-mini',
+export const LUNA_LOW_DEFAULT_PROFILE = Object.freeze({
+  model: 'gpt-5.6-luna',
   effort: 'low',
   context: 'default',
 });
 
-const GPT54_MEDIUM_DEFAULT_PROFILE = Object.freeze({
-  model: 'gpt-5.4',
+export const LUNA_MEDIUM_DEFAULT_PROFILE = Object.freeze({
+  model: 'gpt-5.6-luna',
   effort: 'medium',
+  context: 'default',
+});
+
+export const EVIDENCE_CURATOR_PROFILE = Object.freeze({
+  model: 'gpt-5.4-mini',
+  effort: 'low',
   context: 'default',
 });
 
@@ -53,7 +59,7 @@ export const AUTOMATIC_ROUTE_ROLE_CATALOG = Object.freeze({
   'history-reader': Object.freeze({
     role: 'history-reader',
     dispatchKind: 'task',
-    profile: CHEAP_DEFAULT_PROFILE,
+    profile: LUNA_LOW_DEFAULT_PROFILE,
     agentTypes: ['general-purpose'],
     toolCategories: ['history-sql'],
     toolNames: ['session_store_sql'],
@@ -62,7 +68,7 @@ export const AUTOMATIC_ROUTE_ROLE_CATALOG = Object.freeze({
   'history-auditor': Object.freeze({
     role: 'history-auditor',
     dispatchKind: 'task',
-    profile: GPT54_MEDIUM_DEFAULT_PROFILE,
+    profile: LUNA_MEDIUM_DEFAULT_PROFILE,
     agentTypes: ['general-purpose'],
     toolCategories: ['history-sql'],
     toolNames: ['session_store_sql'],
@@ -71,7 +77,7 @@ export const AUTOMATIC_ROUTE_ROLE_CATALOG = Object.freeze({
   'host-diagnostics-reader': Object.freeze({
     role: 'host-diagnostics-reader',
     dispatchKind: 'task',
-    profile: CHEAP_DEFAULT_PROFILE,
+    profile: LUNA_LOW_DEFAULT_PROFILE,
     agentTypes: ['general-purpose'],
     toolCategories: ['shell'],
     toolNames: ['bash'],
@@ -80,7 +86,7 @@ export const AUTOMATIC_ROUTE_ROLE_CATALOG = Object.freeze({
   'repository-reader': Object.freeze({
     role: 'repository-reader',
     dispatchKind: 'task',
-    profile: CHEAP_DEFAULT_PROFILE,
+    profile: LUNA_LOW_DEFAULT_PROFILE,
     agentTypes: ['explore', 'general-purpose'],
     toolCategories: ['repository-read', 'repository-search'],
     toolNames: ['view', 'rg', 'glob'],
@@ -89,7 +95,7 @@ export const AUTOMATIC_ROUTE_ROLE_CATALOG = Object.freeze({
   'external-evidence-reader': Object.freeze({
     role: 'external-evidence-reader',
     dispatchKind: 'task',
-    profile: CHEAP_DEFAULT_PROFILE,
+    profile: LUNA_LOW_DEFAULT_PROFILE,
     agentTypes: ['general-purpose'],
     toolCategories: ['web', 'github', 'browser', 'mcp'],
     toolNames: [
@@ -131,7 +137,7 @@ export const AUTOMATIC_ROUTE_ROLE_CATALOG = Object.freeze({
   'evidence-curator': Object.freeze({
     role: 'evidence-curator',
     dispatchKind: 'task',
-    profile: CHEAP_DEFAULT_PROFILE,
+    profile: EVIDENCE_CURATOR_PROFILE,
     agentTypes: ['general-purpose'],
     toolCategories: ['repository-read', 'repository-search', 'history-sql', 'web', 'github', 'browser', 'mcp'],
     toolNames: [

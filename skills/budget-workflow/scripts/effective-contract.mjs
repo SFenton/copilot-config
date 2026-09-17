@@ -1,6 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { AUTOMATIC_ROUTE_ROLE_CATALOG } from './model-catalog.mjs';
+import {
+  AUTOMATIC_ROUTE_ROLE_CATALOG,
+  LUNA_LOW_DEFAULT_PROFILE,
+  LUNA_MEDIUM_DEFAULT_PROFILE,
+} from './model-catalog.mjs';
 import { readReleaseMachine } from './release-machine.mjs';
 import { INTENT_ACCEPTANCE_ROLE } from './intent-acceptance.mjs';
 import { contained, readAdapter } from './budget.mjs';
@@ -24,11 +28,7 @@ const STATIC_ROLE_CATALOG = Object.freeze({
     role: 'implementation-coordinator',
     dispatchKind: 'task',
     authority: 'semantic-coordination',
-    profile: Object.freeze({
-      model: 'gpt-5.4',
-      effort: 'medium',
-      context: 'default',
-    }),
+    profile: LUNA_MEDIUM_DEFAULT_PROFILE,
     agentTypes: ROLE_KIND_AGENTS.coordinator,
     capabilityStatus: 'qualified',
     provenance: Object.freeze({ source: 'static-role-catalog' }),
@@ -37,11 +37,7 @@ const STATIC_ROLE_CATALOG = Object.freeze({
     role: 'reviewer',
     dispatchKind: 'task',
     authority: 'semantic-review-only',
-    profile: Object.freeze({
-      model: 'gpt-5.4',
-      effort: 'medium',
-      context: 'default',
-    }),
+    profile: LUNA_MEDIUM_DEFAULT_PROFILE,
     agentTypes: ROLE_KIND_AGENTS.reviewer,
     capabilityStatus: 'qualified',
     provenance: Object.freeze({ source: 'static-role-catalog' }),
@@ -50,11 +46,7 @@ const STATIC_ROLE_CATALOG = Object.freeze({
     role: 'medium-coordinator',
     dispatchKind: 'task',
     authority: 'semantic-coordination',
-    profile: Object.freeze({
-      model: 'gpt-5.4',
-      effort: 'medium',
-      context: 'default',
-    }),
+    profile: LUNA_MEDIUM_DEFAULT_PROFILE,
     agentTypes: ROLE_KIND_AGENTS.coordinator,
     capabilityStatus: 'qualified',
     provenance: Object.freeze({ source: 'static-role-catalog' }),
@@ -63,11 +55,7 @@ const STATIC_ROLE_CATALOG = Object.freeze({
     role: 'medium-review',
     dispatchKind: 'task',
     authority: 'semantic-review-only',
-    profile: Object.freeze({
-      model: 'gpt-5.4',
-      effort: 'medium',
-      context: 'default',
-    }),
+    profile: LUNA_MEDIUM_DEFAULT_PROFILE,
     agentTypes: ROLE_KIND_AGENTS.reviewer,
     capabilityStatus: 'qualified',
     provenance: Object.freeze({ source: 'static-role-catalog' }),
@@ -76,11 +64,7 @@ const STATIC_ROLE_CATALOG = Object.freeze({
     role: 'simple-explorer',
     dispatchKind: 'task',
     authority: 'bounded-read-only',
-    profile: Object.freeze({
-      model: 'gpt-5.4-mini',
-      effort: 'low',
-      context: 'default',
-    }),
+    profile: LUNA_LOW_DEFAULT_PROFILE,
     agentTypes: ROLE_KIND_AGENTS.explorer,
     capabilityStatus: 'qualified',
     provenance: Object.freeze({ source: 'static-role-catalog' }),

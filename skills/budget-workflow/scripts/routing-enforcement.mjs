@@ -6,7 +6,11 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { hookDecision as oversizedReadDecision } from './budget.mjs';
 import { fsyncDirectory } from './durability.mjs';
-import { AUTOMATIC_ROUTE_ROLE_CATALOG, SUPPORTED_MODELS } from './model-catalog.mjs';
+import {
+  AUTOMATIC_ROUTE_ROLE_CATALOG,
+  LUNA_MEDIUM_DEFAULT_PROFILE,
+  SUPPORTED_MODELS,
+} from './model-catalog.mjs';
 import {
   DISPATCH_ROLE_CATALOG,
   SUPPORTED_DISPATCH_ROLES,
@@ -93,7 +97,7 @@ const SAFE_CONTROL_PLANE_TOOLS = new Set([
   'vote_memory',
 ]);
 const APPROVED_ROOT_MODELS = new Set([
-  'gpt-5.4',
+  'gpt-5.6-luna',
   'gpt-5.4-mini',
   'gpt-5-mini',
   'gemini-3.7-flash',
@@ -2191,10 +2195,10 @@ function validateDispatchPlan(plan, role, model, effort, context) {
     'Dispatch plan must be an object with status');
   if (['needs-opportunity', 'ambiguous-opportunity'].includes(plan.status)) {
     assert(role === 'implementation-coordinator' &&
-      model === 'gpt-5.4' &&
-      effort === 'medium' &&
-      context === 'default',
-    'Planner ambiguity is terminal for protected sessions except an explicit gpt-5.4 medium/default coordinator dispatch');
+      model === LUNA_MEDIUM_DEFAULT_PROFILE.model &&
+      effort === LUNA_MEDIUM_DEFAULT_PROFILE.effort &&
+      context === LUNA_MEDIUM_DEFAULT_PROFILE.context,
+    'Planner ambiguity is terminal for protected sessions except an explicit gpt-5.6-luna medium/default coordinator dispatch');
   }
   return structuredClone(plan);
 }
@@ -3950,8 +3954,14 @@ function pathAllowedForState(candidate, payload, state, prefixes = state.scope) 
     });
   }
   if (prefixes.length === 0) return true;
-  return prefixes.some(prefix =>
-    absolute.startsWith(canonicalPathForScope(path.resolve(cwd, prefix))));
+  return prefixes.some(prefix => {
+    const scopeRoot = canonicalPathForScope(path.resolve(cwd, prefix));
+    const relativeToScope = path.relative(scopeRoot, absolute);
+    return relativeToScope === '' ||
+      (relativeToScope !== '..' &&
+        !relativeToScope.startsWith(`..${path.sep}`) &&
+        !path.isAbsolute(relativeToScope));
+  });
 }
 
 function callFitsPathConstraints(call, payload, prefixes) {

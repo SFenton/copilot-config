@@ -109,7 +109,7 @@ function opportunity(id = 'fixture', options = {}) {
       coordinator: {
         role: 'medium-coordinator',
         profile: {
-          model: 'gpt-5.4',
+          model: 'gpt-5.6-luna',
           effort: 'medium',
           context: 'default',
         },
@@ -118,7 +118,7 @@ function opportunity(id = 'fixture', options = {}) {
       reviewer: {
         role: 'medium-review',
         profile: {
-          model: 'gpt-5.4',
+          model: 'gpt-5.6-luna',
           effort: 'medium',
           context: 'default',
         },
@@ -775,7 +775,7 @@ test('lifecycle wrappers keep one prompt/session-end path and store only sanitiz
           name: 'history-reader',
           description: 'Run the exact automatic history lookup',
           prompt: 'bounded history lookup',
-          model: 'gpt-5.4-mini',
+          model: 'gpt-5.6-luna',
           reasoning_effort: 'low',
           context_tier: 'default',
           agent_type: 'general-purpose',
@@ -792,7 +792,7 @@ test('lifecycle wrappers keep one prompt/session-end path and store only sanitiz
           description: 'Coordinate bounded implementation work',
           prompt: `\`\`\`budget-dispatch-manifest\n${JSON.stringify({
             role: 'implementation-coordinator',
-            model: 'gpt-5.4',
+            model: 'gpt-5.6-luna',
             effort: 'medium',
             context: 'default',
             agentType: 'general-purpose',
@@ -814,7 +814,7 @@ test('lifecycle wrappers keep one prompt/session-end path and store only sanitiz
           description: 'Review the bounded patch',
           prompt: `\`\`\`budget-dispatch-manifest\n${JSON.stringify({
             role: 'reviewer',
-            model: 'gpt-5.4',
+            model: 'gpt-5.6-luna',
             effort: 'medium',
             context: 'default',
             agentType: 'code-review',

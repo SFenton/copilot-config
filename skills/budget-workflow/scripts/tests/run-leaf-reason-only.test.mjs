@@ -112,8 +112,8 @@ function intentPacket(overrides = {}) {
     ],
     changeSummary: 'Add invalid-save feedback.',
     reviewAcceptance: {
-      role: 'independent-gpt-5.4-review',
-      reviewerProfile: { model: 'gpt-5.4', effort: 'medium', context: 'default' },
+      role: 'independent-review',
+      reviewerProfile: { model: 'gpt-5.6-luna', effort: 'medium', context: 'default' },
       acceptanceRefId: 'review-accepted',
       resolvedFindingRefIds: [],
     },

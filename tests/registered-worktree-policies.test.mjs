@@ -41,7 +41,7 @@ const CURRENT_SKILL = `---
 name: release-dashboard
 description: Explicitly invoked dashboard release scope-review workflow for the operator-authorized deterministic release machine; it does not itself commit, push, merge, deploy, or mutate Home Assistant.
 metadata:
-  model: gpt-5.4
+  model: gpt-5.6-luna
   reasoning_effort: medium
   context_tier: default
 ---
@@ -59,7 +59,7 @@ production verification, rollback, or cleanup driver remains disabled. Until
 all deterministic drivers are implemented and fault-tested, the skill must
 stop after local read-only scope review and deterministic preflight, emit a
 blocked result, and leave the worktree unchanged. Routine scope review uses the
-release opportunity's \`gpt-5.4\` medium/default reviewer.
+release opportunity's \`gpt-5.6-luna\` medium/default reviewer.
 \`gpt-5.6-sol\` high/default research may review only an evidence-bound
 \`ha-release-rollback-or-host-conflict\` trigger after the preceding release
 receipt. No model runs build, Git/PR, deployment, verification, rollback, or
@@ -76,7 +76,7 @@ const ABSENT_MACHINE_SKILL = `---
 name: release-dashboard
 description: Explicitly invoked dashboard release scope-review workflow for a future operator-authorized deterministic release machine; it does not itself commit, push, merge, deploy, or mutate Home Assistant.
 metadata:
-  model: gpt-5.4
+  model: gpt-5.6-luna
   reasoning_effort: medium
   context_tier: default
 ---
@@ -91,7 +91,7 @@ deploy, mutate Home Assistant, or restart it.
 This worktree does not contain \`.github/release-machine.json\`, so release is
 blocked until a separately reviewed version 3 deterministic machine is added
 with matching adapter references and kept disabled by default. Routine scope
-review still uses the release opportunity's \`gpt-5.4\` medium/default reviewer.
+review still uses the release opportunity's \`gpt-5.6-luna\` medium/default reviewer.
 \`gpt-5.6-sol\` high/default research may review only a future evidence-bound
 \`ha-release-rollback-or-host-conflict\` trigger after the preceding release
 receipt once that machine exists. No model runs build, Git/PR, deployment,
@@ -178,7 +178,7 @@ const OPPORTUNITY_POLICY = {
       strategy: 'explicit-release',
       evidence: 'repository',
       primary: {
-        model: 'gpt-5.4',
+        model: 'gpt-5.6-luna',
         effort: 'medium',
         context: 'default',
       },
@@ -206,7 +206,7 @@ const CURRENT_MACHINE = {
   reviewer: {
     role: 'medium-review',
     profile: {
-      model: 'gpt-5.4',
+      model: 'gpt-5.6-luna',
       effort: 'medium',
       context: 'default',
     },
@@ -714,7 +714,7 @@ test('registered worktree scan catches stale hook and manual release skill from 
       'missing-machine-block-state',
       'missing-machine-warning',
       'missing-sol-trigger',
-      'missing-gpt-5.4-reviewer',
+      'missing-luna-reviewer',
       'missing-sol-exception-semantics',
       'machine-absent-skill-must-block-absent',
     ],

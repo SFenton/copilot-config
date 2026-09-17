@@ -4,7 +4,7 @@ Use when prior Copilot session history is materially relevant and repository or
 external evidence alone is insufficient. History extraction is deterministic
 and packet-first: the current owner plans a bounded `session_store_sql` query,
 sanitizes the rows, freezes a history packet, and only then optionally launches
-a packet-only `gpt-5.4-mini` or `gpt-5.4` reason-only leg.
+a packet-only `gpt-5.6-luna` low/default or medium/default reason-only leg.
 
 The fixed templates in `scripts/evidence/history.mjs` cover:
 

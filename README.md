@@ -96,10 +96,11 @@ history, web, coding, test, review, and release-preparation work should be
 delegated to deterministic tools or exact cheaper non-Claude roles whenever
 they are available. Every `task` dispatch should pin `model`,
 `reasoning_effort`, `context_tier`, and `agent_type`. The default exact roles
-are `gpt-5.4` medium/default coordinator and reviewer, project-qualified
-workers on their evaluated pins, history/diagnostics/readers on mini/default
-profiles where supported, and explicit tandem on Sol max/default plus Astra
-medium/default. If the preferred cheaper worker/tool is unavailable, the
+are `gpt-5.6-luna` medium/default coordinator and reviewer, project-qualified
+workers on their evaluated pins, and `gpt-5.6-luna` low/default
+history/diagnostics/readers. Evidence curation remains `gpt-5.4-mini`
+low/default pending separate qualification. Explicit tandem remains Sol
+max/default plus Astra medium/default. If the preferred cheaper worker/tool is unavailable, the
 current owner may proceed directly, keep the project's safety and release gates
 intact, and report the routing exception plus any likely avoidable credits that
 are actually supported by evidence. Persistent Claude pins are not part of the
@@ -566,8 +567,8 @@ normalized; nonempty private web query text is still rejected.
 {
   "prompt": "Answer this supplied-evidence question. Do not use tools.",
   "sanitized": true,
-  "model": "gpt-5.4-mini",
-  "effort": "medium",
+  "model": "gpt-5.6-luna",
+  "effort": "low",
   "context": "default",
   "maxCredits": 30,
   "timeoutSeconds": 120,

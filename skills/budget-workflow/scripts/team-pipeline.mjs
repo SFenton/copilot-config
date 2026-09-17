@@ -18,6 +18,7 @@ import {
   verifyWorkflowCompletionObservation,
 } from './continuous-improvement.mjs';
 import { USAGE_ACCOUNTING_CATEGORIES } from './evidence/schemas.mjs';
+import { LUNA_MEDIUM_DEFAULT_PROFILE } from './model-catalog.mjs';
 export { evaluateIntentAcceptanceGate } from './intent-acceptance.mjs';
 
 export const PIPELINE_PHASE_KINDS = new Set([
@@ -57,7 +58,7 @@ const MODEL_KINDS = new Set([
   'cheap-worker',
   'medium-review',
 ]);
-const MEDIUM_MODELS = new Set(['gpt-5.4']);
+const MEDIUM_MODELS = new Set([LUNA_MEDIUM_DEFAULT_PROFILE.model]);
 const CHEAP_MODELS = new Set([
   'gpt-5-mini',
   'gpt-5.4-mini',
@@ -378,10 +379,10 @@ export function validateOpportunityPolicyV3(
         `${opportunity.id}/${conditional.id}: external research profile invalid`);
       }
       if (conditional.kind === 'spec-planner') {
-        assert(conditional.profile.model === 'gpt-5.4' &&
-          conditional.profile.effort === 'medium' &&
-          conditional.profile.context === 'default',
-        `${opportunity.id}/${conditional.id}: spec planner must be gpt-5.4 medium/default`);
+        assert(conditional.profile.model === LUNA_MEDIUM_DEFAULT_PROFILE.model &&
+          conditional.profile.effort === LUNA_MEDIUM_DEFAULT_PROFILE.effort &&
+          conditional.profile.context === LUNA_MEDIUM_DEFAULT_PROFILE.context,
+        `${opportunity.id}/${conditional.id}: spec planner must be gpt-5.6-luna medium/default`);
       }
       if (conditional.kind === 'risk-triggered-frontier-review') {
         assert(conditional.profile.model === 'gpt-5.6-sol' &&

@@ -169,7 +169,7 @@ export function researchRequest(task, repoRoot, cacheDir) {
     return {
       plan,
       request: null,
-      instruction: 'Use history.mjs plan/run/packet for deterministic history extraction, then optionally run a packet-only gpt-5.4 or gpt-5.4-mini reason-only leaf.',
+      instruction: 'Use history.mjs plan/run/packet for deterministic history extraction, then optionally run a packet-only gpt-5.6-luna low/default or medium/default reason-only leaf.',
     };
   }
   if (!external && !adapter?.evidencePolicy) throw new Error('Project needs an evidencePolicy; do not flatten old release gates into research');

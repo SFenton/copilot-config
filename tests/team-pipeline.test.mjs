@@ -35,12 +35,12 @@ import {
 import { makeScratch } from './helpers/scratch.mjs';
 
 const medium = {
-  model: 'gpt-5.4',
+  model: 'gpt-5.6-luna',
   effort: 'medium',
   context: 'default',
 };
 const sensitiveMedium = {
-  model: 'gpt-5.4',
+  model: 'gpt-5.6-luna',
   effort: 'medium',
   context: 'default',
 };
@@ -195,7 +195,7 @@ function fixturePolicy() {
           id: 'binding-spec',
           kind: 'spec-planner',
           profile: {
-            model: 'gpt-5.4',
+            model: 'gpt-5.6-luna',
             effort: 'medium',
             context: 'default',
           },
@@ -363,7 +363,7 @@ function coordinatorPrefix() {
     phaseKind: 'spec-planner',
     role: 'spec-planner',
     profile: {
-      model: 'gpt-5.4',
+      model: 'gpt-5.6-luna',
       effort: 'medium',
       context: 'default',
     },
@@ -506,7 +506,7 @@ test('registered deterministic phases execute without a model launch or model-bo
     phaseKind: 'spec-planner',
     role: 'spec-planner',
     profile: {
-      model: 'gpt-5.4',
+      model: 'gpt-5.6-luna',
       effort: 'medium',
       context: 'default',
     },
