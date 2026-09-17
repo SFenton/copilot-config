@@ -1,10 +1,14 @@
-# History research
+# Targeted history lookup
 
-Use when prior Copilot session history is materially relevant and repository or
-external evidence alone is insufficient. History extraction is deterministic
-and packet-first: the current owner plans a bounded `session_store_sql` query,
-sanitizes the rows, freezes a history packet, and only then optionally launches
-a packet-only `gpt-5.6-luna` low/default or medium/default reason-only leg.
+Session history is an additive evidence source, not a mutually exclusive
+research mode. Before diagnosing a named recurring system, feature,
+integration, or entity, the current owner should run a bounded
+`session_store_sql` query using the operator's original nouns.
+
+Return only relevant excerpts and keep the raw operator wording beside any
+interpretation. A frozen history packet may be useful for an explicit research
+workflow, but it is not required for ordinary work and no reader model is
+required.
 
 The fixed templates in `scripts/evidence/history.mjs` cover:
 
@@ -42,5 +46,5 @@ node scripts/evidence/history.mjs plan REQUEST.json
 node scripts/evidence/history.mjs run REQUEST.json rows.json
 ```
 
-History packets support extractive summaries only. They do not authorize
-repository edits, releases, live probes, or automatic tandem escalation.
+History evidence does not authorize repository edits, releases, live probes,
+or automatic tandem escalation.

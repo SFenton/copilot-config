@@ -1,7 +1,7 @@
 # Copilot Config
 
-Version-controlled personal Copilot skills and deterministic budget/evidence
-tooling. Node 22+, Git and ripgrep are required; model calls additionally require
+Version-controlled personal Copilot skills and optional deterministic
+evidence/budget tooling. Node 22+, Git and ripgrep are required; model calls additionally require
 an authenticated Copilot CLI. Run `npm ci` in this checkout for evidence tools.
 No Portal account, external inference endpoint, database server or persistent
 extension runtime is required.
@@ -14,22 +14,18 @@ scanner failed on real source, so PHP deliberately uses its native JS parser.
 
 ## Skills and ownership
 
-- `budget-workflow`: deterministic-first routing, exact evidence, project-tuned
-  medium coordination, one-revision bounded workers, explicit trust tiers, and
-  deterministic release gates.
+- `budget-workflow`: minimal non-Claude workflow with one semantic owner,
+  targeted session-history continuity, direct tools, and bounded evidence
+  delegation.
 - `tandem-research`: explicit Sol max/default plus Astra medium/default
-  packet-only research/adjudication protocol, **explicit invocation only**.
-  Follow-on implementation returns to
-  the hierarchical project route; complexity alone does not trigger tandem or
-  max-resident implementation.
+  independent research/adjudication protocol, **explicit invocation only**.
+  Both researchers receive the unchanged operator prompt and matched evidence.
 
-HydraFusion can be the user-selected coordinator. Do not nest it under itself
-or add an automatic tandem layer. Its critique pattern is not two independent
-research investigations. Unproven high-risk/novel tasks keep frontier reasoning.
-Overall model identity is not authority. Sol, HydraFusion, or another current
-model may fill a role only when it exactly matches that project's resolved pin;
-otherwise it may orchestrate/read while the router dispatches the pinned role.
-Repository safety, operator authorization, and explicit specialist pins win.
+The current main model owns task meaning, evidence integration, implementation,
+and the final answer. Deterministic tools and bounded non-Claude workers may
+collect repository, web, history, log, test, build, or review evidence without
+rewriting the task or acquiring implementation authority. Repository safety,
+operator authorization, and explicit specialist requests always win.
 
 The [four-arm research comparison](evals/factorial-results.md) found Astra low
 direct faster but modestly more expensive than Sol max direct, while the tested
@@ -44,8 +40,8 @@ node scripts/install.mjs
 node scripts/install.mjs /absolute/path/to/copilot-config
 ```
 
-The installer links both skills and installs the Markdown-first routing
-lifecycle hook, the sanitized observability hooks, and
+The installer links both skills and installs the passive session-end hook, an
+inert compatibility observability hook file, and
 `instructions/budget-workflow.instructions.md` as regular files into
 `$COPILOT_HOME` or `~/.copilot`. It refuses real-file/directory collisions and
 unknown symlinks. It writes a rollback receipt before changes. Existing
@@ -55,92 +51,29 @@ Hook commands honor `COPILOT_HOME` and provide Bash implementations for Linux
 and macOS plus PowerShell implementations for Windows.
 Shared CI runs the repository and internal skill suites on all three platforms.
 
-The short personal instruction makes budget-workflow the default for substantive
-engineering/research tasks: ask normally, without explicitly naming the skill.
-It applies across ordinary checkouts as well as budget worktrees. Without a
-project adapter, the assistant uses native project rules/direct tools; the full
-phase-aware project integration still requires that project's adapter changes.
-Small questions and known commands do not require workflow ceremony.
-For substantive project tasks, the installed opportunity planner still runs
-when the current branch predates the routing-policy files. It may read the one
-valid policy bundle from an already-fetched local default-branch ref without
-fetching or modifying the worktree. Its result is advisory routing evidence
-only and grants no repository-apply, live, release, destructive, production, or
-other side-effect authority.
-An optional sparse override at
-`.github/budget-contract.override.v1.json` may add stricter gates or
-undiscoverable bindings, but it cannot widen model authority, remove native
-repository gates, or enable release/destructive work.
+The personal instruction applies a minimal workflow across ordinary
+repositories: preserve raw operator wording, search bounded session history for
+named recurring systems, use direct tools first, and delegate only bounded
+mechanical evidence work to non-Claude workers. It does not require a planner,
+evidence mode, packet, receipt, fixed model role, or coordinator.
 
-This is default instruction-based behavior, not an installed `/plugin` package,
-an automatic interactive model switch, or a hard billing/security interceptor.
-Start a fresh CLI process/session after installing, changing hook registrations,
-or manually editing the routing config. Existing processes may retain earlier
-instruction text, hook registrations, or in-memory routing state. To restore
-the previous installation:
+This is instruction-based behavior, not an installed `/plugin` package, an
+automatic model switch, or a billing/security interceptor. Start a fresh CLI
+process/session after installing or changing hook registrations because
+existing processes may retain earlier instruction text and hook state. To
+restore the previous installation:
 
 ```bash
 node scripts/install.mjs --rollback /absolute/path/to/budget-install-TIMESTAMP.json
 ```
 
 The installer writes regular hook JSON; skill directories remain symlinked.
-Installed budget routing no longer registers a universal `preToolUse` hook.
-Routing is Markdown-first guidance plus optional helper commands and sanitized
-observability. It must never prevent starting/resuming a session, invoking a
-skill, using explicit operator tools, delegating work, or calling
-`task_complete`.
-
-Frontier models are reserved for research reasoning, architecture,
-adjudication, and final intent coverage from frozen evidence. Repository,
-history, web, coding, test, review, and release-preparation work should be
-delegated to deterministic tools or exact cheaper non-Claude roles whenever
-they are available. Every `task` dispatch should pin `model`,
-`reasoning_effort`, `context_tier`, and `agent_type`. The default exact roles
-are `gpt-5.6-luna` medium/default coordinator and reviewer, project-qualified
-workers on their evaluated pins, and `gpt-5.6-luna` low/default
-history/diagnostics/readers. Evidence curation remains `gpt-5.4-mini`
-low/default pending separate qualification. Explicit tandem remains Sol
-max/default plus Astra medium/default. If the preferred cheaper worker/tool is unavailable, the
-current owner may proceed directly, keep the project's safety and release gates
-intact, and report the routing exception plus any likely avoidable credits that
-are actually supported by evidence. Persistent Claude pins are not part of the
-default route.
-
-The installed routing hook keeps only `userPromptSubmitted` and `sessionEnd`.
-It starts a privacy-safe workflow identity, clears routing state, and writes a
-non-blocking session-end compliance summary. The separate observability hook
-keeps `postToolUse`, `postToolUseFailure`, `subagentStop`, and `agentStop`.
-Stored data is limited to hashes, byte counts, normalized operation shapes,
-tool/path/risk classes, delegation/compliance counts, receipt lineage, and
-reconciled usage. It never stores raw prompts, responses, source text, command
-text, tool arguments, repository paths beyond existing hashed policy identity,
-credentials, or environment values. Logging failures never block session end.
-
-Projects opt in with `.github/agent-learning.json`. Existing branches and
-worktrees that predate that file use one valid policy bundle from a local
-default-branch ref; the hook never fetches or mutates the worktree. Learning
-state is keyed by a hashed project and canonical repository identity so linked
-worktrees share events and candidates without storing remote URLs or
-credentials. The observer silently
-no-ops below recurrence thresholds. At most one threshold-crossing candidate
-can request one continuation, with durable recursion and `stop_hook_active`
-guards. Real project policies keep automatic promotion disabled unless a
-repository explicitly enables the narrow replay/review/value/scope/rollback
-path for a zero/low-side-effect repository-local tool or skill.
-
-Historical event imports can classify otherwise unhinted prompts with an
-enabled opportunity:
-
-```bash
-node skills/budget-workflow/scripts/continuous-improvement.mjs \
-  backfill-events /path/to/project /path/to/events.jsonl \
-  --opportunity OPPORTUNITY_ID
-```
-
-The override is a non-authorizing workflow classification. Exact unique prompt
-triggers take precedence; unknown and disabled IDs are rejected. Persisted
-events record only that an operator/coordinator supplied the classification and
-a stable hash, never raw classification text.
+The active hook surface contains only `sessionEnd`, which records sanitized
+usage and outcome metadata without steering the task or requesting another
+turn. The installed continuous-improvement hook file is empty by default.
+Optional planners, evidence builders, history packetizers, staging tools, and
+learning scripts remain available for explicit use and testing, but they are
+not part of ordinary task routing.
 
 ## Copilot CLI instruction surfaces
 

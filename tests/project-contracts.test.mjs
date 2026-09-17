@@ -162,9 +162,8 @@ test('project adapters resolve and relocated contracts retain original detailed 
       const hook = JSON.parse(fs.readFileSync(path.join(item.root, '.github/hooks/budget-reads.json'), 'utf8'));
       assert.equal(hook.version, 1);
       assert.equal(Array.isArray(hook.hooks.preToolUse), false);
-      assert.equal(hook.hooks.userPromptSubmitted.length, 1);
       assert.equal(hook.hooks.sessionEnd.length, 1);
-      assert.deepEqual(Object.keys(hook.hooks).sort(), ['sessionEnd', 'userPromptSubmitted']);
+      assert.deepEqual(Object.keys(hook.hooks).sort(), ['sessionEnd']);
       const after = audit(item.root);
       assert.deepEqual(after.findings.filter(finding => finding.type === 'missing-link'), []);
       if (adapter.destructiveMaintenanceMachine) {

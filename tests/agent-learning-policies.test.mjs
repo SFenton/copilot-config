@@ -37,8 +37,8 @@ test('project learning policies bind priorities, validators and safety',
       assert.equal(policy.thresholds.minimumOperationCount, 2);
       assert.equal(policy.thresholds.maximumSubgraphOperations, 6);
       assert.equal(policy.thresholds.maximumAnalysisEvents, 10000);
-      assert.equal(policy.continuation.enabled, true);
-      assert.equal(policy.automaticBuild, true);
+      assert.equal(policy.continuation.enabled, false);
+      assert.equal(policy.automaticBuild, false);
       assert.equal(policy.automaticPromotion, false);
       assert.deepEqual(policy.promotion.allowedSideEffects, ['none', 'workspace']);
       assert.ok(policy.riskClasses.some(value =>

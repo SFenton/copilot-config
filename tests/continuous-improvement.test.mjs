@@ -1840,7 +1840,7 @@ test('event backfill accepts only enabled privacy-safe opportunity overrides', t
   }
 });
 
-test('learning policy and installed hook enforce automatic build without promotion', () => {
+test('learning policy supports automatic build while installed observer stays inert', () => {
   const validated = validateLearningPolicy(policy(), 'fixture');
   assert.equal(validated.automaticBuild, true);
   assert.equal(validated.automaticPromotion, false);
@@ -1852,15 +1852,5 @@ test('learning policy and installed hook enforce automatic build without promoti
     '../hooks/continuous-improvement.json',
     import.meta.url,
   ), 'utf8'));
-  assert.deepEqual(Object.keys(hook.hooks).sort(), [
-    'agentStop',
-    'postToolUse',
-    'postToolUseFailure',
-    'subagentStop',
-  ]);
-  for (const entries of Object.values(hook.hooks)) {
-    assert.equal(entries.length, 1);
-    assert.equal(entries[0].type, 'command');
-    assert.match(entries[0].bash, /continuous-improvement\.mjs/);
-  }
+  assert.deepEqual(hook.hooks, {});
 });

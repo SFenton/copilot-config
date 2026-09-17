@@ -6,6 +6,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { makeScratch } from './helpers/scratch.mjs';
 import {
+  inspectBudgetHook,
   scanRegisteredWorktrees,
 } from '../scripts/scan-registered-worktree-policies.mjs';
 import { loadProjectManifest } from '../scripts/project-manifest.mjs';
@@ -15,11 +16,6 @@ const projectManifest = process.env.BUDGET_PROJECT_MANIFEST;
 const CURRENT_HOOK = `${JSON.stringify({
   version: 1,
   hooks: {
-    userPromptSubmitted: [{
-      type: 'command',
-      bash: 'node "$HOME/.copilot/skills/budget-workflow/scripts/routing-enforcement.mjs" prompt-start',
-      timeoutSec: 5,
-    }],
     sessionEnd: [{
       type: 'command',
       bash: 'node "$HOME/.copilot/skills/budget-workflow/scripts/routing-enforcement.mjs" session-end',
@@ -30,6 +26,11 @@ const CURRENT_HOOK = `${JSON.stringify({
 const STALE_HOOK = `${JSON.stringify({
   version: 1,
   hooks: {
+    userPromptSubmitted: [{
+      type: 'command',
+      bash: 'node "$HOME/.copilot/skills/budget-workflow/scripts/routing-enforcement.mjs" prompt-start',
+      timeoutSec: 5,
+    }],
     preToolUse: [{
       type: 'command',
       bash: 'node "$HOME/.copilot/skills/budget-workflow/scripts/budget.mjs" hook',
@@ -37,6 +38,28 @@ const STALE_HOOK = `${JSON.stringify({
     }],
   },
 }, null, 2)}\n`;
+
+test('any prompt-submitted hook is rejected even when it is not the legacy command', () => {
+  const result = inspectBudgetHook(JSON.stringify({
+    version: 1,
+    hooks: {
+      userPromptSubmitted: [{
+        type: 'command',
+        bash: 'node custom-prompt-hook.mjs',
+        timeoutSec: 5,
+      }],
+      sessionEnd: [{
+        type: 'command',
+        bash: 'node "$HOME/.copilot/skills/budget-workflow/scripts/routing-enforcement.mjs" session-end',
+        timeoutSec: 5,
+      }],
+    },
+  }));
+
+  assert.equal(result.ok, false);
+  assert.equal(result.hasPromptStart, true);
+  assert.deepEqual(result.reasons, ['prompt-start-enabled']);
+});
 const CURRENT_SKILL = `---
 name: release-dashboard
 description: Explicitly invoked dashboard release scope-review workflow for the operator-authorized deterministic release machine; it does not itself commit, push, merge, deploy, or mutate Home Assistant.
@@ -703,7 +726,7 @@ test('registered worktree scan catches stale hook and manual release skill from 
   assert.equal(report.unsafeSkillAuthorizationCount, 1);
   assert.equal(report.unaccountedSkillWithoutMachineCount, 1);
   assert.deepEqual(report.failures.filter(item => item.type === 'budget-hook').map(item => item.reasons), [
-    ['preToolUse', 'missing-prompt-start', 'missing-session-end'],
+    ['preToolUse', 'prompt-start-enabled', 'missing-session-end'],
   ]);
   assert.deepEqual(report.failures.filter(item => item.type === 'release-skill').map(item => item.reasons), [
     [

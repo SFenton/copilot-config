@@ -40,11 +40,6 @@ const MACHINE_EXCEPTION_REASONS = new Set([
   'stale-sol-exception-profile',
   'missing-sol-trigger-support',
 ]);
-const PROMPT_START_HOOK = {
-  type: 'command',
-  bash: 'node "$HOME/.copilot/skills/budget-workflow/scripts/routing-enforcement.mjs" prompt-start',
-  timeoutSec: 5,
-};
 const SESSION_END_HOOK = {
   type: 'command',
   bash: 'node "$HOME/.copilot/skills/budget-workflow/scripts/routing-enforcement.mjs" session-end',
@@ -241,12 +236,12 @@ export function inspectBudgetHook(text) {
     : {};
   const hasPreToolUse = Array.isArray(hooks.preToolUse) && hooks.preToolUse.length > 0;
   const hasPromptStart = Array.isArray(hooks.userPromptSubmitted) &&
-    hooks.userPromptSubmitted.some(entry => exactHookMatch(entry, PROMPT_START_HOOK));
+    hooks.userPromptSubmitted.length > 0;
   const hasSessionEnd = Array.isArray(hooks.sessionEnd) &&
     hooks.sessionEnd.some(entry => exactHookMatch(entry, SESSION_END_HOOK));
   const reasons = [];
   if (hasPreToolUse) reasons.push('preToolUse');
-  if (!hasPromptStart) reasons.push('missing-prompt-start');
+  if (hasPromptStart) reasons.push('prompt-start-enabled');
   if (!hasSessionEnd) reasons.push('missing-session-end');
   return {
     ok: reasons.length === 0,

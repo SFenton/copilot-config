@@ -1,14 +1,6 @@
 {
   "version": 1,
   "hooks": {
-    "userPromptSubmitted": [
-      {
-        "type": "command",
-        "bash": "node \"${COPILOT_HOME:-$HOME/.copilot}/skills/budget-workflow/scripts/routing-enforcement.mjs\" prompt-start",
-        "powershell": "$copilotHome = if ($env:COPILOT_HOME) { $env:COPILOT_HOME } else { Join-Path $HOME '.copilot' }; node (Join-Path $copilotHome 'skills/budget-workflow/scripts/routing-enforcement.mjs') prompt-start",
-        "timeoutSec": 5
-      }
-    ],
     "sessionEnd": [
       {
         "type": "command",

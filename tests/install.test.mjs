@@ -10,12 +10,6 @@ import { install, uninstall } from '../scripts/install.mjs';
 const ROUTING_HOOK_JSON = `${JSON.stringify({
   version: 1,
   hooks: {
-    userPromptSubmitted: [{
-      type: 'command',
-      bash: 'node "${COPILOT_HOME:-$HOME/.copilot}/skills/budget-workflow/scripts/routing-enforcement.mjs" prompt-start',
-      powershell: "$copilotHome = if ($env:COPILOT_HOME) { $env:COPILOT_HOME } else { Join-Path $HOME '.copilot' }; node (Join-Path $copilotHome 'skills/budget-workflow/scripts/routing-enforcement.mjs') prompt-start",
-      timeoutSec: 5,
-    }],
     sessionEnd: [{
       type: 'command',
       bash: 'node "${COPILOT_HOME:-$HOME/.copilot}/skills/budget-workflow/scripts/routing-enforcement.mjs" session-end',
@@ -26,32 +20,7 @@ const ROUTING_HOOK_JSON = `${JSON.stringify({
 }, null, 2)}\n`;
 const CONTINUOUS_IMPROVEMENT_HOOK_JSON = `${JSON.stringify({
   version: 1,
-  hooks: {
-    postToolUse: [{
-      type: 'command',
-      bash: 'node "${COPILOT_HOME:-$HOME/.copilot}/skills/budget-workflow/scripts/continuous-improvement.mjs" post-tool-use',
-      powershell: "$copilotHome = if ($env:COPILOT_HOME) { $env:COPILOT_HOME } else { Join-Path $HOME '.copilot' }; node (Join-Path $copilotHome 'skills/budget-workflow/scripts/continuous-improvement.mjs') post-tool-use",
-      timeoutSec: 5,
-    }],
-    postToolUseFailure: [{
-      type: 'command',
-      bash: 'node "${COPILOT_HOME:-$HOME/.copilot}/skills/budget-workflow/scripts/continuous-improvement.mjs" post-tool-use-failure',
-      powershell: "$copilotHome = if ($env:COPILOT_HOME) { $env:COPILOT_HOME } else { Join-Path $HOME '.copilot' }; node (Join-Path $copilotHome 'skills/budget-workflow/scripts/continuous-improvement.mjs') post-tool-use-failure",
-      timeoutSec: 5,
-    }],
-    subagentStop: [{
-      type: 'command',
-      bash: 'node "${COPILOT_HOME:-$HOME/.copilot}/skills/budget-workflow/scripts/continuous-improvement.mjs" subagent-stop',
-      powershell: "$copilotHome = if ($env:COPILOT_HOME) { $env:COPILOT_HOME } else { Join-Path $HOME '.copilot' }; node (Join-Path $copilotHome 'skills/budget-workflow/scripts/continuous-improvement.mjs') subagent-stop",
-      timeoutSec: 5,
-    }],
-    agentStop: [{
-      type: 'command',
-      bash: 'node "${COPILOT_HOME:-$HOME/.copilot}/skills/budget-workflow/scripts/continuous-improvement.mjs" agent-stop',
-      powershell: "$copilotHome = if ($env:COPILOT_HOME) { $env:COPILOT_HOME } else { Join-Path $HOME '.copilot' }; node (Join-Path $copilotHome 'skills/budget-workflow/scripts/continuous-improvement.mjs') agent-stop",
-      timeoutSec: 10,
-    }],
-  },
+  hooks: {},
 }, null, 2)}\n`;
 
 function assertCrossPlatformHookCommands(hook) {
@@ -222,27 +191,20 @@ test('installer upgrades an unchanged regular file from a named previous checkou
   assert.equal(fs.readFileSync(path.join(home, 'hooks/continuous-improvement.json'), 'utf8'), '{"version":"old"}');
 });
 
-test('canonical and installed routing hook sources stay semantically aligned with prompt/session lifecycle hooks', () => {
+test('canonical and installed routing hook sources keep only passive session-end observation', () => {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const installHook = JSON.parse(fs.readFileSync(path.join(root, 'hooks/budget-reads.json'), 'utf8'));
   const canonicalHook = JSON.parse(fs.readFileSync(path.join(root, '.github/hooks/budget-reads.json'), 'utf8'));
   assert.deepEqual(canonicalHook, installHook);
-  assert.deepEqual(Object.keys(installHook.hooks).sort(),
-    ['sessionEnd', 'userPromptSubmitted']);
-  assert.equal(installHook.hooks.userPromptSubmitted.length, 1);
+  assert.deepEqual(Object.keys(installHook.hooks).sort(), ['sessionEnd']);
   assert.equal(installHook.hooks.sessionEnd.length, 1);
   assertCrossPlatformHookCommands(installHook);
 });
 
-test('installed observability hooks avoid duplicate lifecycle registration', () => {
+test('installed continuous-improvement hook is inert by default', () => {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const hook = JSON.parse(fs.readFileSync(path.join(root, 'hooks/continuous-improvement.json'), 'utf8'));
-  assert.deepEqual(Object.keys(hook.hooks).sort(), [
-    'agentStop',
-    'postToolUse',
-    'postToolUseFailure',
-    'subagentStop',
-  ]);
+  assert.deepEqual(hook.hooks, {});
   assertCrossPlatformHookCommands(hook);
 });
 
@@ -255,34 +217,16 @@ test('installed hooks execute through the native platform shell', t => {
     path.join(home, 'hooks/budget-reads.json'),
     'utf8',
   ));
-  const observability = JSON.parse(fs.readFileSync(
-    path.join(home, 'hooks/continuous-improvement.json'),
-    'utf8',
-  ));
   const commandKey = process.platform === 'win32' ? 'powershell' : 'bash';
   const sessionId = '64646464-6464-4646-8646-646464646464';
-  const started = runNativeHook(
-    routing.hooks.userPromptSubmitted[0][commandKey],
-    { sessionId, cwd: root, prompt: 'Cross-platform hook smoke test' },
+  const ended = runNativeHook(
+    routing.hooks.sessionEnd[0][commandKey],
+    { sessionId, cwd: root, reason: 'completed' },
     home,
     root,
   );
-  assert.equal(started.status, 0, started.stderr);
-  assert.equal(JSON.parse(started.stdout).kind, 'prompt-routing-state');
-  const observed = runNativeHook(
-    observability.hooks.postToolUse[0][commandKey],
-    {
-      sessionId,
-      cwd: root,
-      toolName: 'view',
-      toolArgs: { path: 'README.md' },
-      toolResult: { success: true },
-    },
-    home,
-    root,
-  );
-  assert.equal(observed.status, 0, observed.stderr);
-  assert.deepEqual(JSON.parse(observed.stdout), {});
+  assert.equal(ended.status, 0, ended.stderr);
+  assert.equal(typeof JSON.parse(ended.stdout), 'object');
   uninstall(result.receipt);
 });
 
@@ -306,7 +250,10 @@ test('markdown-first instruction surfaces and fallback guidance stay documented'
     assert.match(readme, new RegExp(command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
   assert.match(readme, /soft[\s*]+per-session AI credit target/i);
-  assert.match(instruction, /must never prevent[\s\S]*starting or resuming a session/i);
-  assert.match(instruction, /current owner may proceed directly/i);
-  assert.match(instruction, /Do not add or preserve persistent Claude/i);
+  assert.match(instruction, /Do not use\s+Claude models/i);
+  assert.match(instruction, /current main model as the semantic owner/i);
+  assert.match(instruction, /bounded session-history search/i);
+  assert.match(instruction, /No prompt-start routing/i);
+  assert.doesNotMatch(instruction, /opportunities\.mjs plan/);
+  assert.doesNotMatch(instruction, /frontier models never perform/);
 });
