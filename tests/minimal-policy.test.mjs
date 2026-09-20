@@ -18,6 +18,8 @@ test('default instruction keeps semantic ownership and targeted continuity', () 
   assert.match(instruction, /bounded session-history search/i);
   assert.match(instruction, /Delegate only bounded mechanical evidence work/i);
   assert.match(instruction, /Do not use\s+Claude models/i);
+  assert.match(instruction, /auto-merge only when the pull request author is exactly\s+`SFenton`/i);
+  assert.match(instruction, /including bots[\s\S]*manual merge/i);
 
   assert.doesNotMatch(instruction, /opportunities\.mjs plan/i);
   assert.doesNotMatch(instruction, /frontier models never perform/i);

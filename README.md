@@ -57,8 +57,10 @@ Shared CI runs the repository and internal skill suites on all three platforms.
 The personal instruction applies a minimal workflow across ordinary
 repositories: preserve raw operator wording, search bounded session history for
 named recurring systems, use direct tools first, and delegate only bounded
-mechanical evidence work to non-Claude workers. It does not require a planner,
-evidence mode, packet, receipt, fixed model role, or coordinator.
+mechanical evidence work to non-Claude workers. It permits auto-merge only for
+pull requests authored by `SFenton`; every other author's pull request requires
+a manual merge. It does not require a planner, evidence mode, packet, receipt,
+fixed model role, or coordinator.
 
 This is instruction- and settings-based behavior, not an installed `/plugin`
 package or a billing/security interceptor. The managed `settings.json` keys set

@@ -11,6 +11,13 @@ Follow the current repository's safety, authorization, testing, release, and
 domain-ownership rules. Advice and research do not authorize implementation,
 live mutation, deployment, release, destructive work, or permission changes.
 
+## Pull request merge safety
+
+- Enable or preserve auto-merge only when the pull request author is exactly
+  `SFenton`.
+- Never enable or re-enable auto-merge for pull requests authored by anyone
+  else, including bots. Those pull requests require a manual merge.
+
 ## Preserve meaning and continuity
 
 - Preserve the operator's exact wording until evidence supports a more specific
