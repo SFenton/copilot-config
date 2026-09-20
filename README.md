@@ -41,12 +41,15 @@ node scripts/install.mjs /absolute/path/to/copilot-config
 ```
 
 The installer links both skills and installs the passive session-end hook, an
-inert compatibility observability hook file, and
-`instructions/budget-workflow.instructions.md` as regular files into
-`$COPILOT_HOME` or `~/.copilot`. It refuses real-file/directory collisions and
-unknown symlinks. It writes a rollback receipt before changes. Existing
-unrelated skills, hooks, model defaults, credentials and permissions are not
-modified. Links point at this checkout: retain the worktree until promoted.
+inert compatibility observability hook file,
+`instructions/budget-workflow.instructions.md`, and the managed keys from
+`settings.json` into `$COPILOT_HOME` or `~/.copilot`. Settings are merged into
+the existing user file: unrelated keys are preserved, while conflicting edits
+to managed keys are rejected unless upgrading from an explicitly named
+previous checkout. It refuses real-file/directory collisions and unknown
+symlinks. It writes a rollback receipt before changes. Existing unrelated
+skills, hooks, settings, credentials and permissions are not modified. Links
+point at this checkout: retain the worktree until promoted.
 Hook commands honor `COPILOT_HOME` and provide Bash implementations for Linux
 and macOS plus PowerShell implementations for Windows.
 Shared CI runs the repository and internal skill suites on all three platforms.
@@ -57,17 +60,21 @@ named recurring systems, use direct tools first, and delegate only bounded
 mechanical evidence work to non-Claude workers. It does not require a planner,
 evidence mode, packet, receipt, fixed model role, or coordinator.
 
-This is instruction-based behavior, not an installed `/plugin` package, an
-automatic model switch, or a billing/security interceptor. Start a fresh CLI
-process/session after installing or changing hook registrations because
-existing processes may retain earlier instruction text and hook state. To
+This is instruction- and settings-based behavior, not an installed `/plugin`
+package or a billing/security interceptor. The managed `settings.json` keys set
+the Copilot CLI user defaults. The interactive default is `gpt-5.6-sol`;
+role-specific workflows continue to pin Luna or another explicitly qualified
+model, and session-level selections can still override the default. Start a
+fresh CLI process/session after installing or changing settings, instructions,
+or hook registrations because existing processes may retain earlier values. To
 restore the previous installation:
 
 ```bash
 node scripts/install.mjs --rollback /absolute/path/to/budget-install-TIMESTAMP.json
 ```
 
-The installer writes regular hook JSON; skill directories remain symlinked.
+The installer writes regular hook and settings JSON; skill directories remain
+symlinked.
 The active hook surface contains only `sessionEnd`, which records sanitized
 usage and outcome metadata without steering the task or requesting another
 turn. The installed continuous-improvement hook file is empty by default.
