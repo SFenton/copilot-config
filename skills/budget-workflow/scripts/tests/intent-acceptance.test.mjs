@@ -634,6 +634,7 @@ test('supported selected model ids stay aligned with the current local catalog f
     'gemini-3.6-flash',
     'gemini-3.5-flash',
     'grok-4.5',
+    'gpt-6-sol',
     'gpt-6-astra',
     'grok-4.6',
   ]);

@@ -186,7 +186,10 @@ export function summarizeUsageLineage(lineage) {
     categories: totals,
     totalCredits: Object.values(totals).reduce((sum, value) => sum + value, 0),
     unreconciledCredits: unreconciled,
-    frontierResearchCredits: totals['sol-research'] + totals['astra-research'] + totals['research-adjudication'],
+    frontierResearchCredits: totals['sol-research'] +
+      totals['gpt6-sol-research'] +
+      totals['astra-research'] +
+      totals['research-adjudication'],
     intentAcceptanceCredits: totals['user-intent-acceptance'],
     deterministicEvidenceCredits: totals['deterministic-evidence'] + totals['history-curation'],
   };

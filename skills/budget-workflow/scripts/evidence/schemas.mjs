@@ -44,6 +44,7 @@ export const USAGE_ACCOUNTING_CATEGORIES = Object.freeze([
   'cheap-curation',
   'history-curation',
   'sol-research',
+  'gpt6-sol-research',
   'astra-research',
   'research-adjudication',
   'user-intent-acceptance',
@@ -79,8 +80,8 @@ const EXACT_FRONTIER_PROFILES = Object.freeze({
     context: 'default',
   }),
   'tandem-secondary-research': Object.freeze({
-    model: 'gpt-6-astra',
-    effort: 'medium',
+    model: 'gpt-6-sol',
+    effort: 'max',
     context: 'default',
   }),
 });

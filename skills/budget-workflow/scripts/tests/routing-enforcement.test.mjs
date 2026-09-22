@@ -1673,7 +1673,7 @@ test('Sol packet-only reason-only run-leaf dispatch is allowed', () => {
   assert.deepEqual(allowed, {});
 });
 
-test('Astra tandem dispatch is allowed only with both frontier and tandem-pair receipts', () => {
+test('GPT-6 Sol tandem dispatch is allowed only with both frontier and tandem-pair receipts', () => {
   const home = makeTempDir('routing-home-');
   const repo = makeTempDir('routing-repo-');
   makeRepo(repo, 'evershelf');
@@ -1697,7 +1697,7 @@ test('Astra tandem dispatch is allowed only with both frontier and tandem-pair r
     scopeHash: base.packet.scopeHash,
     packetHash: base.packet.packetHash,
     primaryProfile: { model: 'gpt-5.6-sol', effort: 'max', context: 'default' },
-    secondaryProfile: { model: 'gpt-6-astra', effort: 'medium', context: 'default' },
+    secondaryProfile: { model: 'gpt-6-sol', effort: 'max', context: 'default' },
     primaryDispatchReceiptHash: base.frontierReceipt.receiptHash,
     secondaryDispatchReceiptHash: secondaryReceipt.receiptHash,
     gapLoops: 0,
@@ -1711,8 +1711,8 @@ test('Astra tandem dispatch is allowed only with both frontier and tandem-pair r
     repository: repo,
     scope: ['api'],
     role: 'tandem-secondary-research',
-    model: 'gpt-6-astra',
-    effort: 'medium',
+    model: 'gpt-6-sol',
+    effort: 'max',
     context: 'default',
     allowedToolCategories: [],
     validations: ['strict-json-output'],
@@ -1737,7 +1737,7 @@ test('Astra tandem dispatch is allowed only with both frontier and tandem-pair r
     maxCredits: 60,
     timeoutSeconds: 60,
   });
-  const requestFile = path.join(home, 'astra-request.json');
+  const requestFile = path.join(home, 'gpt6-sol-request.json');
   writeJson(requestFile, request);
 
   const allowed = hookDecision({
@@ -1745,7 +1745,7 @@ test('Astra tandem dispatch is allowed only with both frontier and tandem-pair r
     cwd: repo,
     toolName: 'bash',
     toolArgs: {
-      command: `node ${RUN_LEAF_SCRIPT} ${requestFile} ${path.join(home, 'astra-out')}`,
+      command: `node ${RUN_LEAF_SCRIPT} ${requestFile} ${path.join(home, 'gpt6-sol-out')}`,
     },
   }, { home });
   assert.deepEqual(allowed, {});
@@ -1787,7 +1787,7 @@ test('tandem frontier profiles fail closed for stale roles, wrong pins, and tool
     sessionId,
     promptHash: base.state.promptHash,
     role: 'tandem-secondary-research',
-    model: 'gpt-6-astra',
+    model: 'gpt-6-sol',
     effort: 'high',
     context: 'default',
     evidencePacket: base.packet,
@@ -1828,8 +1828,8 @@ test('tandem frontier profiles fail closed for stale roles, wrong pins, and tool
     repository: repo,
     scope: ['api'],
     role: 'tandem-secondary-research',
-    model: 'gpt-6-astra',
-    effort: 'medium',
+    model: 'gpt-6-sol',
+    effort: 'max',
     context: 'long_context',
     allowedToolCategories: [],
     validations: ['strict-json-output'],
@@ -1839,7 +1839,7 @@ test('tandem frontier profiles fail closed for stale roles, wrong pins, and tool
     tandemPairReceiptHash: 'b'.repeat(64),
     intent: { researchMode: 'repository', tandemRequested: true, packetWorkflowVersion: 2 },
     plan: { status: 'ready', opportunity: 'tandem-research' },
-  }), /must use gpt-6-astra\/medium\/default/);
+  }), /must use gpt-6-sol\/max\/default/);
 
   assert.throws(() => createDispatchManifest({
     sessionId,
@@ -1848,8 +1848,8 @@ test('tandem frontier profiles fail closed for stale roles, wrong pins, and tool
     repository: repo,
     scope: ['api'],
     role: 'tandem-secondary-research',
-    model: 'gpt-6-astra',
-    effort: 'medium',
+    model: 'gpt-6-sol',
+    effort: 'max',
     context: 'default',
     allowedToolCategories: ['repository-read'],
     validations: ['strict-json-output'],
