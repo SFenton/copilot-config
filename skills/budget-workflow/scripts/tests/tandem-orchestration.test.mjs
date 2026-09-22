@@ -79,9 +79,10 @@ test('packet-only tandem dispatches bind the identical packet hash', () => {
   assert.equal(dispatches.primaryDispatch.profile.effort, 'max');
   assert.equal(dispatches.primaryDispatch.profile.context, 'default');
   assert.equal(dispatches.secondaryDispatch.role, 'tandem-secondary-research');
-  assert.equal(dispatches.secondaryDispatch.profile.model, 'gpt-6-astra');
-  assert.equal(dispatches.secondaryDispatch.profile.effort, 'medium');
+  assert.equal(dispatches.secondaryDispatch.profile.model, 'gpt-6-sol');
+  assert.equal(dispatches.secondaryDispatch.profile.effort, 'max');
   assert.equal(dispatches.secondaryDispatch.profile.context, 'default');
+  assert.equal(dispatches.secondaryDispatch.usageLineage[0].category, 'gpt6-sol-research');
   assert.equal(dispatches.pairReceipt.secondaryRole, 'tandem-secondary-research');
   assert.equal(dispatches.pairReceipt.packetHash, evidencePacket.packetHash);
 });
@@ -165,7 +166,7 @@ test('delta packets and adjudication remain packet-only', () => {
     scopeHash: evidencePacket.scopeHash,
     packetHash: evidencePacket.packetHash,
     primaryProfile: { model: 'gpt-5.6-sol', effort: 'max', context: 'default' },
-    secondaryProfile: { model: 'gpt-6-astra', effort: 'medium', context: 'default' },
+    secondaryProfile: { model: 'gpt-6-sol', effort: 'max', context: 'default' },
     primaryDispatchReceiptHash: dispatches.primaryDispatch.receiptHash,
     secondaryDispatchReceiptHash: dispatches.secondaryDispatch.receiptHash,
     gapLoops: 0,
@@ -216,5 +217,5 @@ test('delta packets and adjudication remain packet-only', () => {
     packetReceiptHash: packetReceipt.receiptHash,
     primaryResult: findings(evidencePacket.packetHash),
     secondaryResult: findings(evidencePacket.packetHash),
-  }), /must use gpt-6-astra\/medium\/default/);
+  }), /must use gpt-6-sol\/max\/default/);
 });

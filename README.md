@@ -17,7 +17,7 @@ scanner failed on real source, so PHP deliberately uses its native JS parser.
 - `budget-workflow`: minimal non-Claude workflow with one semantic owner,
   targeted session-history continuity, direct tools, and bounded evidence
   delegation.
-- `tandem-research`: explicit Sol max/default plus Astra medium/default
+- `tandem-research`: explicit GPT-5.6 Sol max/default plus GPT-6 Sol max/default
   independent research/adjudication protocol, **explicit invocation only**.
   Both researchers receive the unchanged operator prompt and matched evidence.
 

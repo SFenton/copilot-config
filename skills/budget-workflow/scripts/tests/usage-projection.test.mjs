@@ -30,6 +30,7 @@ test('usage lineage distinguishes deterministic, cheap, frontier, and downstream
     { category: 'deterministic-evidence', actualCredits: 1.2, reservedCredits: null, usageHash: null },
     { category: 'cheap-curation', actualCredits: 0.5, reservedCredits: null, usageHash: null },
     { category: 'sol-research', actualCredits: 2.0, reservedCredits: null, usageHash: null },
+    { category: 'gpt6-sol-research', actualCredits: 0.8, reservedCredits: null, usageHash: null },
     { category: 'astra-research', actualCredits: 0.9, reservedCredits: null, usageHash: null },
     { category: 'research-adjudication', actualCredits: 0.7, reservedCredits: null, usageHash: null },
     { category: 'user-intent-acceptance', actualCredits: 0.4, reservedCredits: null, usageHash: null },
@@ -37,10 +38,11 @@ test('usage lineage distinguishes deterministic, cheap, frontier, and downstream
   ]);
   const summary = summarizeUsageLineage(lineage);
   assert.equal(summary.categories['deterministic-evidence'], 1.2);
+  assert.equal(summary.categories['gpt6-sol-research'], 0.8);
   assert.equal(summary.categories['astra-research'], 0.9);
-  assert.ok(Math.abs(summary.frontierResearchCredits - 3.6) < 1e-9);
+  assert.ok(Math.abs(summary.frontierResearchCredits - 4.4) < 1e-9);
   assert.equal(summary.intentAcceptanceCredits, 0.4);
-  assert.ok(Math.abs(summary.totalCredits - 6.8) < 1e-9);
+  assert.ok(Math.abs(summary.totalCredits - 7.6) < 1e-9);
 });
 
 test('sanitized projection fixture meets target frontier and total credit reductions', () => {

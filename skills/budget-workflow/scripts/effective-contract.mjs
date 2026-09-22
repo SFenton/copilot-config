@@ -100,8 +100,8 @@ const STATIC_ROLE_CATALOG = Object.freeze({
     dispatchKind: 'reason-only-leaf',
     authority: 'semantic-research-only',
     profile: Object.freeze({
-      model: 'gpt-6-astra',
-      effort: 'medium',
+      model: 'gpt-6-sol',
+      effort: 'max',
       context: 'default',
     }),
     agentTypes: [],

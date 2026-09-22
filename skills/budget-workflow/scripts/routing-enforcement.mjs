@@ -160,6 +160,7 @@ const FORBIDDEN_TASK_MODELS = new Set([
   'inherit',
   'hydrafusion',
   'gpt-5.6-sol',
+  'gpt-6-sol',
   'gpt-6-astra',
   'claude-sonnet-5',
   'claude-sonnet-4.6',
@@ -3254,7 +3255,7 @@ export function authorizeResearchReceipt(input, options = {}) {
     deltaPacketHash: packet.deltaFromPacketHash,
     usageLineage: input.usageLineage ?? [{
       category: role === 'tandem-secondary-research'
-        ? 'astra-research'
+        ? 'gpt6-sol-research'
         : role === 'frontier-adjudication'
           ? 'research-adjudication'
           : 'sol-research',

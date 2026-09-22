@@ -203,13 +203,13 @@ test('frontier and tandem receipts reject stale Opus or wrong-effort profile pin
     scopeHash: packet.scopeHash,
     packetHash: packet.packetHash,
     primaryProfile: { model: 'gpt-5.6-sol', effort: 'max', context: 'default' },
-    secondaryProfile: { model: 'gpt-6-astra', effort: 'high', context: 'default' },
+    secondaryProfile: { model: 'gpt-6-sol', effort: 'high', context: 'default' },
     primaryDispatchReceiptHash: validFrontier.receiptHash,
     secondaryDispatchReceiptHash: 'b'.repeat(64),
     gapLoops: 0,
     createdAt: packet.createdAt,
     expiresAt: packet.expiresAt,
-  }), /must use gpt-6-astra\/medium\/default/);
+  }), /must use gpt-6-sol\/max\/default/);
 
   const validPair = createTandemPairReceipt({
     workflowId: packet.workflowId,
@@ -219,7 +219,7 @@ test('frontier and tandem receipts reject stale Opus or wrong-effort profile pin
     scopeHash: packet.scopeHash,
     packetHash: packet.packetHash,
     primaryProfile: { model: 'gpt-5.6-sol', effort: 'max', context: 'default' },
-    secondaryProfile: { model: 'gpt-6-astra', effort: 'medium', context: 'default' },
+    secondaryProfile: { model: 'gpt-6-sol', effort: 'max', context: 'default' },
     primaryDispatchReceiptHash: validFrontier.receiptHash,
     secondaryDispatchReceiptHash: 'b'.repeat(64),
     gapLoops: 0,
@@ -234,5 +234,5 @@ test('frontier and tandem receipts reject stale Opus or wrong-effort profile pin
     Object.entries(tamperedPair).filter(([key]) => key !== 'receiptHash'),
   ));
   assert.throws(() => validateTandemPairReceipt(tamperedPair),
-    /must use gpt-6-astra\/medium\/default/);
+    /must use gpt-6-sol\/max\/default/);
 });

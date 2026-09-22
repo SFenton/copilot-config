@@ -20,8 +20,8 @@ const STANDARD_PRIMARY_PROFILE = Object.freeze({
 });
 
 const STANDARD_SECONDARY_PROFILE = Object.freeze({
-  model: 'gpt-6-astra',
-  effort: 'medium',
+  model: 'gpt-6-sol',
+  effort: 'max',
   context: 'default',
 });
 
@@ -105,7 +105,7 @@ export function createPacketOnlyTandemDispatches(input) {
     parentReceiptHash: primaryDispatch.receiptHash,
     deltaPacketHash: packet.deltaFromPacketHash,
     usageLineage: [{
-      category: 'astra-research',
+      category: 'gpt6-sol-research',
       usageHash: null,
       reservedCredits: input.secondaryReservedCredits ?? 0,
       actualCredits: null,

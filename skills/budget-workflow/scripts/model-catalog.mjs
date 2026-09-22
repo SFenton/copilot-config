@@ -19,6 +19,7 @@ export const SUPPORTED_MODEL_IDS = Object.freeze([
   'gemini-3.6-flash',
   'gemini-3.5-flash',
   'grok-4.5',
+  'gpt-6-sol',
   'gpt-6-astra',
   'grok-4.6',
 ]);
