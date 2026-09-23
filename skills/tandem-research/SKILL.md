@@ -10,7 +10,7 @@ description: Explicit-only independent GPT-6 Sol and Claude Opus 5.5 research wi
 An explicit tandem request is a handoff to the two researchers, not a cue for
 the parent to investigate first:
 
-1. Launch GPT-6 Sol `max/default` and Opus 5.5 `high/default` as independent
+1. Launch GPT-6 Sol `max/default` and Opus 5.5 `max/default` as independent
    background agents immediately, using the exact unmodified operator request
    and only already-known read-only safety constraints. Do not search history,
    read files, browse, or assemble a shared scope/brief before dispatch.
@@ -83,7 +83,7 @@ The tandem always consists of:
 | Role | Model | Effort | Context |
 |---|---|---|---|
 | Primary researcher and final adjudicator | `gpt-6-sol` | `max` | `default` |
-| Independent second researcher | `claude-opus-5.5` | `high` | `default` |
+| Independent second researcher | `claude-opus-5.5` | `max` | `default` |
 
 Requirements:
 
