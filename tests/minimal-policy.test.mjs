@@ -15,6 +15,7 @@ test('default instruction retains safety without routing research', () => {
 
   assert.match(instruction, /current main model owns task meaning/i);
   assert.match(instruction, /Do not use Claude models except Claude Opus 5\.5/i);
+  assert.match(instruction, /Claude Opus 5\.5 `max\/default`/);
   assert.match(instruction, /auto-merge only when the author is exactly\s+`SFenton`/i);
   assert.match(instruction, /including bots[\s\S]*manual merge/i);
   assert.doesNotMatch(instruction, /must search session history|packet-first|read files before/i);
@@ -34,7 +35,9 @@ test('archived budget skill still makes planners and packets optional', () => {
 test('tandem dispatches first and permits authorized implementation', () => {
   const skill = text('skills/tandem-research/SKILL.md');
 
-  assert.match(skill, /Launch GPT-6 Sol `max\/default` and Opus 5\.5 `high\/default`/i);
+  assert.match(skill, /Launch GPT-6 Sol `max\/default` and Opus 5\.5 `max\/default`/i);
+  assert.match(skill, /\| Independent second researcher \| `claude-opus-5\.5` \| `max` \| `default` \|/);
+  assert.doesNotMatch(skill, /Opus 5\.5 `high\/default`/);
   assert.match(skill, /exact unmodified operator request/i);
   assert.match(skill, /end the parent\s+turn and wait/i);
   assert.match(skill, /No parent `view`, search, web, GitHub, history, shell/i);

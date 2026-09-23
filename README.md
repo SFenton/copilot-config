@@ -15,7 +15,7 @@ scanner failed on real source, so PHP deliberately uses its native JS parser.
 ## Skills and ownership
 
 - `tandem-research`: explicit GPT-6 Sol max/default and Claude Opus 5.5
-  high/default research, cross-critique, and GPT-6 Sol adjudication.
+  max/default research, cross-critique, and GPT-6 Sol adjudication.
   Both researchers launch from the unchanged operator request before the
   parent reads sources; the parent yields while their first passes run.
   Authorized implementation uses normal CLI edit and shell permissions and

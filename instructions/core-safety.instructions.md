@@ -10,7 +10,7 @@ does not authorize repository edits, live-system changes, deployment, or
 destructive operations; use normal CLI permissions for explicitly requested
 implementation.
 
-Do not use Claude models except Claude Opus 5.5 `high/default` as the read-only
+Do not use Claude models except Claude Opus 5.5 `max/default` as the read-only
 secondary researcher in explicitly invoked `/tandem-research`. GPT-6 Sol
 `max/default` is the primary researcher and adjudicator. No Claude model may
 implement, mutate live systems, or replace the main task owner.
