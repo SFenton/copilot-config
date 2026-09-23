@@ -14,12 +14,18 @@ scanner failed on real source, so PHP deliberately uses its native JS parser.
 
 ## Skills and ownership
 
-- `budget-workflow`: minimal non-Claude workflow with one semantic owner,
-  targeted session-history continuity, direct tools, and bounded evidence
-  delegation.
-- `tandem-research`: explicit GPT-5.6 Sol max/default plus GPT-6 Sol max/default
-  independent research/adjudication protocol, **explicit invocation only**.
-  Both researchers receive the unchanged operator prompt and matched evidence.
+- `tandem-research`: explicit GPT-6 Sol max/default and Claude Opus 5.5
+  high/default research, cross-critique, and GPT-6 Sol adjudication.
+  Both researchers launch from the unchanged operator request before the
+  parent reads sources; the parent yields while their first passes run.
+  Authorized implementation uses normal CLI edit and shell permissions and
+  the active repository's validation and release gates.
+
+The budget-workflow skill, hooks, and instruction remain in this repository
+only as **optional historical tooling**; the user-level installer does not
+activate them. The packet-only tandem scripts remain historical utilities;
+the promoted skill launches native background researchers instead. Existing
+project-level instructions remain in force.
 
 The current main model owns task meaning, evidence integration, implementation,
 and the final answer. Deterministic tools and bounded non-Claude workers may
@@ -40,49 +46,39 @@ node scripts/install.mjs
 node scripts/install.mjs /absolute/path/to/copilot-config
 ```
 
-The installer links both skills and installs the passive session-end hook, an
-inert compatibility observability hook file,
-`instructions/budget-workflow.instructions.md`, and the managed keys from
-`settings.json` into `$COPILOT_HOME` or `~/.copilot`. Settings are merged into
-the existing user file: unrelated keys are preserved, while conflicting edits
-to managed keys are rejected unless upgrading from an explicitly named
-previous checkout. It refuses real-file/directory collisions and unknown
-symlinks. It writes a rollback receipt before changes. Existing unrelated
-skills, hooks, settings, credentials and permissions are not modified. Links
-point at this checkout: retain the worktree until promoted.
-Hook commands honor `COPILOT_HOME` and provide Bash implementations for Linux
-and macOS plus PowerShell implementations for Windows.
+The installer links only tandem-research, copies the minimal
+`instructions/core-safety.instructions.md`, and merges managed keys from
+`settings.json` into `$COPILOT_HOME` or `~/.copilot`. With an explicitly
+named previous checkout, it also retires **only recognized** budget skill,
+hook, and instruction files. Unknown links, changed files, and conflicting
+managed settings fail closed. It records a rollback receipt before changes
+and preserves unrelated settings, skills, credentials, and permissions.
+Links point at this checkout: keep the merged-main worktree installed.
 Shared CI runs the repository and internal skill suites on all three platforms.
 
-The personal instruction applies a minimal workflow across ordinary
-repositories: preserve raw operator wording, search bounded session history for
-named recurring systems, use direct tools first, and delegate only bounded
-mechanical evidence work to non-Claude workers. It permits auto-merge only for
-pull requests authored by `SFenton`; every other author's pull request requires
-a manual merge. It does not require a planner, evidence mode, packet, receipt,
-fixed model role, or coordinator.
+The personal instruction keeps only model and authorization safety: the
+Claude exception is the read-only tandem secondary role, and auto-merge is
+allowed only on pull requests authored by `SFenton`. It does not route
+research or require budget packets, receipts, or workers.
 
 This is instruction- and settings-based behavior, not an installed `/plugin`
 package or a billing/security interceptor. The managed `settings.json` keys set
-the Copilot CLI user defaults. The interactive default is `gpt-5.6-sol`;
-role-specific workflows continue to pin Luna or another explicitly qualified
-model, and session-level selections can still override the default. Start a
+the Copilot CLI user defaults. The interactive default is `gpt-6-sol`;
+budget-workflow and ha-budget-workflow skills are disabled, while normal CLI
+permissions permit explicitly requested editing. Start a
 fresh CLI process/session after installing or changing settings, instructions,
 or hook registrations because existing processes may retain earlier values. To
 restore the previous installation:
 
 ```bash
-node scripts/install.mjs --rollback /absolute/path/to/budget-install-TIMESTAMP.json
+node scripts/install.mjs --rollback /absolute/path/to/copilot-install-TIMESTAMP-UUID.json
 ```
 
-The installer writes regular hook and settings JSON; skill directories remain
-symlinked.
-The active hook surface contains only `sessionEnd`, which records sanitized
-usage and outcome metadata without steering the task or requesting another
-turn. The installed continuous-improvement hook file is empty by default.
-Optional planners, evidence builders, history packetizers, staging tools, and
-learning scripts remain available for explicit use and testing, but they are
-not part of ordinary task routing.
+The installer writes settings and core instruction JSON/Markdown; tandem
+remains symlinked. No user-level budget hook is installed. Optional archived
+planners, evidence builders, history packetizers, and learning scripts remain
+available in this repository for explicit use and testing, but they do not
+route ordinary work.
 
 ## Copilot CLI instruction surfaces
 
@@ -450,8 +446,8 @@ These are pragmatic legacy-route defaults, not model-quality certification. The
 [mode calibration](evals/mode-results.md) retained all six selected candidate
 answers above its floor and reduced research credits, but did not reduce total
 tokens. Explicit evaluation pins are not proof that a high-risk project class
-has been promoted to the cheaper default. Astra remains explicit-only for the
-tandem secondary role and explicit user-selected intent-acceptance.
+has been promoted to the cheaper default. These legacy route defaults do not
+select the tandem secondary researcher; its active pin lives in the skill.
 
 Adapters add `evidencePolicy.always`, `phases.research/implementation/validation/
 release`, and `content.allowPaths/denyPaths/maxFileBytes`. Research context stays

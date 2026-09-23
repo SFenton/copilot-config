@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { fileURLToPath } from 'node:url';
 
@@ -55,14 +56,17 @@ function mergeSettings(desiredContent, currentContent, previousContent, destinat
 export function install(root, home, previousRoot = null) {
   const base = fs.realpathSync(root);
   const targets = [
-    ['skills/budget-workflow', 'skills/budget-workflow', 'link'],
     ['skills/tandem-research', 'skills/tandem-research', 'link'],
-    ['hooks/budget-reads.json', 'hooks/budget-reads.json', 'file'],
-    ['hooks/continuous-improvement.json', 'hooks/continuous-improvement.json', 'file'],
-    ['instructions/budget-workflow.instructions.md', 'instructions/budget-workflow.instructions.md', 'file'],
+    ['instructions/core-safety.instructions.md', 'instructions/core-safety.instructions.md', 'file'],
     ['settings.json', 'settings.json', 'settings'],
   ];
-  const plan = targets.map(([source, target, kind]) => {
+  const retiredTargets = [
+    ['skills/budget-workflow', 'link'],
+    ['hooks/budget-reads.json', 'file'],
+    ['hooks/continuous-improvement.json', 'file'],
+    ['instructions/budget-workflow.instructions.md', 'file'],
+  ];
+  const installedPlan = targets.map(([source, target, kind]) => {
     const destination = path.join(home, target);
     const desired = path.join(base, source);
     if (!fs.existsSync(desired)) throw new Error(`Missing source ${source}`);
@@ -111,23 +115,69 @@ export function install(root, home, previousRoot = null) {
     }
     return { destination, desired, previous, previousContent, kind, installedContent };
   });
-  const receipt = path.join(home, `budget-install-${Date.now()}.json`);
+  const retiredPlan = retiredTargets.flatMap(([source, kind]) => {
+    const destination = path.join(home, source);
+    const info = fs.lstatSync(destination, { throwIfNoEntry: false });
+    if (!info) return [];
+    const oldSource = path.join(base, source);
+    const previousSource = previousRoot
+      ? path.join(path.resolve(previousRoot), source)
+      : null;
+    if (kind === 'link') {
+      if (!info.isSymbolicLink()) {
+        throw new Error(`Refusing to retire unrecognized file/directory: ${destination}`);
+      }
+      const previous = fs.readlinkSync(destination);
+      const resolved = path.resolve(path.dirname(destination), previous);
+      if (resolved !== oldSource && resolved !== previousSource) {
+        throw new Error(`Refusing to retire unrecognized link: ${destination}`);
+      }
+      return [{ destination, desired: null, previous, previousContent: null,
+        kind: 'retired-link', installedContent: null }];
+    }
+    if (!info.isFile()) {
+      throw new Error(`Refusing to retire unrecognized file/directory: ${destination}`);
+    }
+    const previousContent = fs.readFileSync(destination, 'utf8');
+    const recognized = [oldSource, previousSource]
+      .filter(sourcePath => sourcePath && fs.existsSync(sourcePath))
+      .some(sourcePath => sameManagedText(
+        previousContent, fs.readFileSync(sourcePath, 'utf8'),
+      ));
+    if (!recognized) {
+      throw new Error(`Refusing to retire unrecognized file: ${destination}`);
+    }
+    return [{ destination, desired: null, previous: null, previousContent,
+      kind: 'retired-file', installedContent: null }];
+  });
+  const plan = [...installedPlan, ...retiredPlan];
+  const receipt = path.join(home, `copilot-install-${Date.now()}-${randomUUID()}.json`);
   fs.mkdirSync(home, { recursive: true });
   fs.writeFileSync(receipt, JSON.stringify({ version: 1, plan }, null, 2), { flag: 'wx', mode: 0o600 });
   for (const item of plan) {
+    if (item.kind.startsWith('retired-')) {
+      fs.unlinkSync(item.destination);
+      continue;
+    }
     fs.mkdirSync(path.dirname(item.destination), { recursive: true });
     if (item.previous !== null || item.previousContent !== null) fs.unlinkSync(item.destination);
     if (item.kind === 'link') fs.symlinkSync(item.desired, item.destination);
     else fs.writeFileSync(item.destination, item.installedContent, { flag: 'wx', mode: 0o600 });
   }
-  return { receipt, links: plan.map(item => item.destination) };
+  return {
+    receipt,
+    links: installedPlan.filter(item => item.kind === 'link').map(item => item.destination),
+    retired: retiredPlan.map(item => item.destination),
+  };
 }
 
 export function uninstall(receipt) {
   const data = JSON.parse(fs.readFileSync(receipt, 'utf8'));
   for (const item of data.plan) {
     const info = fs.lstatSync(item.destination, { throwIfNoEntry: false });
-    const unchanged = item.kind === 'link'
+    const unchanged = item.kind.startsWith('retired-')
+      ? !info
+      : item.kind === 'link'
       ? info?.isSymbolicLink() &&
         path.resolve(path.dirname(item.destination), fs.readlinkSync(item.destination)) === item.desired
       : info?.isFile() &&
@@ -137,7 +187,7 @@ export function uninstall(receipt) {
     }
   }
   for (const item of data.plan) {
-    fs.unlinkSync(item.destination);
+    if (!item.kind.startsWith('retired-')) fs.unlinkSync(item.destination);
     if (item.previous !== null) fs.symlinkSync(item.previous, item.destination);
     else if (item.previousContent !== null && item.previousContent !== undefined) {
       fs.writeFileSync(item.destination, item.previousContent, { flag: 'wx', mode: 0o600 });
