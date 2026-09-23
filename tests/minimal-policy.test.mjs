@@ -10,24 +10,17 @@ function text(relativePath) {
   return fs.readFileSync(path.join(ROOT, relativePath), 'utf8');
 }
 
-test('default instruction keeps semantic ownership and targeted continuity', () => {
-  const instruction = text('instructions/budget-workflow.instructions.md');
+test('default instruction retains safety without routing research', () => {
+  const instruction = text('instructions/core-safety.instructions.md');
 
-  assert.match(instruction, /current main model as the semantic owner/i);
-  assert.match(instruction, /Preserve the operator's exact wording/i);
-  assert.match(instruction, /bounded session-history search/i);
-  assert.match(instruction, /Delegate only bounded mechanical evidence work/i);
-  assert.match(instruction, /Do not use\s+Claude models/i);
-  assert.match(instruction, /auto-merge only when the pull request author is exactly\s+`SFenton`/i);
+  assert.match(instruction, /current main model owns task meaning/i);
+  assert.match(instruction, /Do not use Claude models except Claude Opus 5\.5/i);
+  assert.match(instruction, /auto-merge only when the author is exactly\s+`SFenton`/i);
   assert.match(instruction, /including bots[\s\S]*manual merge/i);
-
-  assert.doesNotMatch(instruction, /opportunities\.mjs plan/i);
-  assert.doesNotMatch(instruction, /frontier models never perform/i);
-  assert.match(instruction, /Do not require[\s\S]*fixed coordinator/i);
-  assert.doesNotMatch(instruction, /userPromptSubmitted/i);
+  assert.doesNotMatch(instruction, /must search session history|packet-first|read files before/i);
 });
 
-test('budget skill makes planners and packets optional', () => {
+test('archived budget skill still makes planners and packets optional', () => {
   const skill = text('skills/budget-workflow/SKILL.md');
 
   assert.match(skill, /current main model responsible/i);
@@ -38,18 +31,19 @@ test('budget skill makes planners and packets optional', () => {
   assert.doesNotMatch(skill, /frontier models never perform/i);
 });
 
-test('tandem preserves raw intent before matched evidence reasoning', () => {
+test('tandem dispatches first and permits authorized implementation', () => {
   const skill = text('skills/tandem-research/SKILL.md');
 
-  assert.match(skill, /operator's exact prompt is canonical/i);
-  assert.match(skill, /unchanged to both\s+researchers/i);
-  assert.match(skill, /search relevant\s+session history/i);
-  assert.match(skill, /Do not use Claude models/i);
-  assert.doesNotMatch(skill, /Normalize one shared question/i);
-  assert.doesNotMatch(skill, /returns to `budget-workflow`/i);
+  assert.match(skill, /Launch GPT-6 Sol `max\/default` and Opus 5\.5 `high\/default`/i);
+  assert.match(skill, /exact unmodified operator request/i);
+  assert.match(skill, /end the parent\s+turn and wait/i);
+  assert.match(skill, /No parent `view`, search, web, GitHub, history, shell/i);
+  assert.match(skill, /current GPT-6 Sol main owner when authorized/i);
+  assert.doesNotMatch(skill, /diagnostic copy is strictly read-only/i);
+  assert.doesNotMatch(skill, /Use budget-workflow\s+for ordinary work/i);
 });
 
-test('installed hook defaults cannot steer prompts or request continuations', () => {
+test('archived hook files cannot steer prompts or request continuations', () => {
   const routing = JSON.parse(text('hooks/budget-reads.json'));
   const observer = JSON.parse(text('hooks/continuous-improvement.json'));
 

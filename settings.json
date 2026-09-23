@@ -1,6 +1,6 @@
 {
-  "model": "gpt-5.6-sol",
-  "disabledSkills": [],
+  "model": "gpt-6-sol",
+  "disabledSkills": ["budget-workflow", "ha-budget-workflow"],
   "experimental": true,
   "bashEnv": false
 }
