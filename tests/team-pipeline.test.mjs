@@ -446,6 +446,110 @@ test('normal known work is medium-owned with deterministic routing and no mandat
   );
 });
 
+test('operator-approved Sol source implementation is pinned without apply or release authority', () => {
+  const policy = fixturePolicy();
+  const opportunity = policy.opportunities[0];
+  opportunity.team.sourceImplementer = {
+    role: 'source-implementer',
+    profile: { model: 'gpt-6-sol', effort: 'max', context: 'default' },
+    evidenceStatus: 'operator-approved',
+  };
+  opportunity.phases.push({
+    id: 'implement-source',
+    kind: 'source-implementation',
+    profileRef: 'source-implementer',
+  });
+  validateOpportunityPolicyV3(policy, policy.toolRegistry);
+  const plan = opportunityPlan({
+    question: 'known work',
+    opportunity: 'known-work',
+  }, policy);
+  assert.equal(plan.status, 'ready');
+  assert.equal(plan.phases.at(-1).kind, 'source-implementation');
+  assert.deepEqual(plan.receiptPhases.at(-1).profile, opportunity.team.sourceImplementer.profile);
+  assert.equal(plan.receiptPhases.at(-1).authority, 'semantic-source-only');
+  assert.equal(plan.team.coordinator.profile.model, 'gpt-5.6-luna');
+  assert.equal(plan.team.repositoryApply.enabled, false);
+  const sourceLeg = {
+    ...receiptBinding,
+    pipelineHash: plan.pipelineHash,
+    pipelineId: 'fixture-known-work',
+    teamId: 'fixture-known-work-team',
+    project: 'fixture',
+    opportunityId: 'known-work',
+    phaseId: 'implement-source',
+    phaseKind: 'source-implementation',
+    role: 'source-implementer',
+    trustTier: 'provisional-staging',
+    attempt: 1,
+    profile: opportunity.team.sourceImplementer.profile,
+    authority: 'semantic-source-only',
+    configurationEvidence: 'a'.repeat(64),
+    usage: { state: 'measured', modelCalls: 1, credits: 1 },
+    state: 'executed',
+    outcome: 'accepted',
+    previousReceiptHash: null,
+    startedAt: '2026-09-23T00:00:00.000Z',
+    completedAt: '2026-09-23T00:00:01.000Z',
+  };
+  assert.equal(createPipelineLegReceipt(sourceLeg).usageCategory, 'downstream-implementation');
+  const skipped = createPipelineLegReceipt({
+    ...sourceLeg,
+    state: 'not-run',
+    outcome: 'not-run',
+    configurationEvidence: null,
+    usage: { state: 'not-run', modelCalls: 0, credits: 0 },
+  });
+  assert.equal(skipped.usage.modelCalls, 0);
+  assert.throws(() => createPipelineLegReceipt({
+    ...sourceLeg,
+    authority: 'repository-apply',
+  }), /cannot claim repository or live authority/);
+
+  const wrongProfile = structuredClone(policy);
+  wrongProfile.opportunities[0].team.sourceImplementer.profile.effort = 'high';
+  assert.throws(() => validateOpportunityPolicyV3(wrongProfile, policy.toolRegistry),
+    /must use gpt-6-sol max\/default/);
+  const missingPhase = structuredClone(policy);
+  missingPhase.opportunities[0].phases.pop();
+  assert.throws(() => validateOpportunityPolicyV3(missingPhase, policy.toolRegistry),
+    /requires exactly one source phase/);
+  const wrongOrder = structuredClone(policy);
+  const phases = wrongOrder.opportunities[0].phases;
+  phases.splice(phases.findIndex(phase => phase.id === 'coordinate'), 0, phases.pop());
+  assert.throws(() => validateOpportunityPolicyV3(wrongOrder, policy.toolRegistry),
+    /must follow coordination and review/);
+  const duplicate = structuredClone(policy);
+  duplicate.opportunities[0].phases.push({
+    id: 'implement-source-again',
+    kind: 'source-implementation',
+    profileRef: 'source-implementer',
+  });
+  assert.throws(() => validateOpportunityPolicyV3(duplicate, policy.toolRegistry),
+    /requires exactly one source phase/);
+  const unapproved = structuredClone(policy);
+  unapproved.opportunities[0].team.sourceImplementer.evidenceStatus = 'provisional';
+  assert.throws(() => validateOpportunityPolicyV3(unapproved, policy.toolRegistry),
+    /requires operator approval/);
+  const livePhase = structuredClone(policy);
+  livePhase.opportunities[0].phases.at(-1).sideEffect = 'production';
+  assert.throws(() => validateOpportunityPolicyV3(livePhase, policy.toolRegistry),
+    /source-only/);
+  const releasePhase = structuredClone(policy);
+  releasePhase.opportunities[0].phases.push({
+    id: 'release',
+    kind: 'deterministic-release',
+    machine: '.github/release-machine.json',
+    operatorAuthorizationRequired: true,
+  });
+  assert.throws(() => validateOpportunityPolicyV3(releasePhase, policy.toolRegistry),
+    /cannot enable a release/);
+  const automaticApply = structuredClone(policy);
+  automaticApply.opportunities[0].team.repositoryApply.enabled = true;
+  assert.throws(() => validateOpportunityPolicyV3(automaticApply, policy.toolRegistry),
+    /repository apply remains disabled/);
+});
+
 test('registered deterministic phases execute without a model launch or model-bound authorization', t => {
   const root = gitFixture('hierarchical-deterministic-');
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));

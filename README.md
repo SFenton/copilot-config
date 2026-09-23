@@ -274,10 +274,17 @@ selection, research evidence, live safety, release and rollback rules.
 All four project `.github/agent-opportunities.json` policies use version 3 and
 resolve exactly 44 project-tuned teams. Supported phase kinds are
 `deterministic`, `research-frontier`, `spec-planner`,
-`medium-coordinator`, `cheap-worker`, `medium-review`,
+`medium-coordinator`, `source-implementation`, `cheap-worker`, `medium-review`,
 `risk-triggered-frontier-review`, and `deterministic-release`.
 Routine deterministic phases need no model launch or model-bound authorization.
-Conditional frontier phases require named trigger receipts. Model role never
+Conditional frontier phases require named trigger receipts. A project may add
+an operator-approved `gpt-6-sol` max/default source implementer after its
+medium coordinator (and any staged-worker review). Its phase may be marked
+not-run when no implementation is requested; it does not replace conditional
+research or medium review. The source role is unavailable to release pipelines
+and cannot claim repository or live authority. Its pin comes only from the
+validated project opportunity plan, not the zero-config dispatch catalog;
+other projects do not inherit it. Model role never
 grants repository apply, GitHub, Home Assistant, database, production, release,
 external, or destructive authority.
 
