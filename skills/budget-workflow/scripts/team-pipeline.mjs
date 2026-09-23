@@ -18,7 +18,10 @@ import {
   verifyWorkflowCompletionObservation,
 } from './continuous-improvement.mjs';
 import { USAGE_ACCOUNTING_CATEGORIES } from './evidence/schemas.mjs';
-import { LUNA_MEDIUM_DEFAULT_PROFILE } from './model-catalog.mjs';
+import {
+  LUNA_MEDIUM_DEFAULT_PROFILE,
+  SOL_MAX_DEFAULT_SOURCE_PROFILE,
+} from './model-catalog.mjs';
 export { evaluateIntentAcceptanceGate } from './intent-acceptance.mjs';
 
 export const PIPELINE_PHASE_KINDS = new Set([
@@ -26,6 +29,7 @@ export const PIPELINE_PHASE_KINDS = new Set([
   'research-frontier',
   'spec-planner',
   'medium-coordinator',
+  'source-implementation',
   'cheap-worker',
   'medium-review',
   'risk-triggered-frontier-review',
@@ -55,6 +59,7 @@ const CONDITIONAL_KINDS = new Set([
 const MODEL_KINDS = new Set([
   ...CONDITIONAL_KINDS,
   'medium-coordinator',
+  'source-implementation',
   'cheap-worker',
   'medium-review',
 ]);
@@ -83,6 +88,7 @@ function usageCategoryForPhase(phaseKind) {
     'risk-triggered-frontier-review': 'research-adjudication',
     'spec-planner': 'cheap-curation',
     'medium-coordinator': 'downstream-implementation',
+    'source-implementation': 'downstream-implementation',
     'cheap-worker': 'downstream-implementation',
     'medium-review': 'downstream-implementation',
   }[phaseKind];
@@ -102,6 +108,7 @@ function invalidated(value) {
 
 function profileFor(opportunity, reference) {
   if (reference === 'coordinator') return opportunity.team.coordinator.profile;
+  if (reference === 'source-implementer') return opportunity.team.sourceImplementer?.profile;
   if (reference === 'reviewer') return opportunity.team.reviewer.profile;
   if (reference === 'worker-candidate') return opportunity.team.workerCandidate.profile;
   if (reference?.startsWith('conditional:')) {
@@ -157,6 +164,7 @@ export function pipelinePhaseContracts(opportunity, registry, variant = null) {
       'research-frontier': ['research-frontier', 'semantic-research-only'],
       'spec-planner': ['spec-planner', 'semantic-specification-only'],
       'medium-coordinator': ['medium-coordinator', 'semantic-coordination'],
+      'source-implementation': ['source-implementer', 'semantic-source-only'],
       'cheap-worker': ['cheap-worker', 'staging-only'],
       'medium-review': ['medium-review', 'semantic-review-only'],
       'risk-triggered-frontier-review': [
@@ -294,6 +302,8 @@ export function validateOpportunityPolicyV3(
         `${opportunity.id}: invalidated opportunities must be disabled`);
     }
 
+    assert(Array.isArray(opportunity.phases) && opportunity.phases.length > 0,
+      `${opportunity.id}: phases required`);
     const team = opportunity.team;
     assert(team && typeof team === 'object' && !Array.isArray(team),
       `${opportunity.id}: team required`);
@@ -310,6 +320,19 @@ export function validateOpportunityPolicyV3(
     `${opportunity.id}: coordinator must be a project-qualified medium/default profile`);
     assert(['provisional', 'qualified'].includes(team.coordinator.evidenceStatus),
       `${opportunity.id}: coordinator evidence status invalid`);
+    if (team.sourceImplementer !== undefined) {
+      assert(opportunity.enabled && !opportunity.variants &&
+        !opportunity.phases.some(phase => phase.kind === 'deterministic-release'),
+      `${opportunity.id}: source implementation cannot enable a release or disabled opportunity`);
+      assert(team.sourceImplementer.role === 'source-implementer',
+        `${opportunity.id}: source implementer role invalid`);
+      validateProfile(team.sourceImplementer.profile, `${opportunity.id}: source implementer`);
+      assert(canonicalJson(team.sourceImplementer.profile) ===
+        canonicalJson(SOL_MAX_DEFAULT_SOURCE_PROFILE),
+      `${opportunity.id}: source implementer must use gpt-6-sol max/default`);
+      assert(team.sourceImplementer.evidenceStatus === 'operator-approved',
+        `${opportunity.id}: source implementation requires operator approval`);
+    }
     assert(team.reviewer?.role === 'medium-review',
       `${opportunity.id}: medium reviewer required`);
     validateProfile(team.reviewer.profile, `${opportunity.id}: reviewer`);
@@ -397,13 +420,13 @@ export function validateOpportunityPolicyV3(
       }
     }
 
-    assert(Array.isArray(opportunity.phases) && opportunity.phases.length > 0,
-      `${opportunity.id}: phases required`);
     const phaseIds = new Set();
     let coordinatorCount = 0;
+    let sourceImplementationCount = 0;
     let workerCount = 0;
     let reviewCount = 0;
     let coordinatorIndex = -1;
+    let sourceImplementationIndex = -1;
     let workerIndex = -1;
     let reviewIndex = -1;
     for (const [phaseIndex, phase] of opportunity.phases.entries()) {
@@ -454,6 +477,14 @@ export function validateOpportunityPolicyV3(
           coordinatorCount += 1;
           coordinatorIndex = phaseIndex;
         }
+        if (phase.kind === 'source-implementation') {
+          sourceImplementationCount += 1;
+          sourceImplementationIndex = phaseIndex;
+          assert(phase.profileRef === 'source-implementer' &&
+            phase.sideEffect === undefined &&
+            phase.variant === undefined,
+          `${opportunity.id}/${phase.id}: source implementation is source-only`);
+        }
         if (phase.kind === 'cheap-worker') {
           workerCount += 1;
           workerIndex = phaseIndex;
@@ -468,6 +499,13 @@ export function validateOpportunityPolicyV3(
     }
     assert(coordinatorCount === 1,
       `${opportunity.id}: exactly one medium coordinator phase required`);
+    assert(sourceImplementationCount === (team.sourceImplementer ? 1 : 0),
+      `${opportunity.id}: source implementer requires exactly one source phase`);
+    if (sourceImplementationCount > 0) {
+      assert(sourceImplementationIndex > coordinatorIndex &&
+        (reviewIndex < 0 || sourceImplementationIndex > reviewIndex),
+      `${opportunity.id}: source implementation must follow coordination and review`);
+    }
     assert(workerCount <= 1 && reviewCount <= 1,
       `${opportunity.id}: at most one worker and reviewer phase allowed`);
     assert(workerCount === reviewCount,
@@ -602,6 +640,10 @@ export function createPipelineLegReceipt(input) {
   if (input.phaseKind === 'cheap-worker') {
     assert(input.authority === 'staging-only',
       'Cheap worker authority must be staging-only');
+  }
+  if (input.phaseKind === 'source-implementation') {
+    assert(input.authority === 'semantic-source-only',
+      'Source implementer cannot claim repository or live authority');
   }
   const receipt = {
     version: 1,

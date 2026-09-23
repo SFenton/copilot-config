@@ -50,6 +50,12 @@ export const LUNA_MEDIUM_DEFAULT_PROFILE = Object.freeze({
   context: 'default',
 });
 
+export const SOL_MAX_DEFAULT_SOURCE_PROFILE = Object.freeze({
+  model: 'gpt-6-sol',
+  effort: 'max',
+  context: 'default',
+});
+
 export const EVIDENCE_CURATOR_PROFILE = Object.freeze({
   model: 'gpt-5.4-mini',
   effort: 'low',
