@@ -57,7 +57,6 @@ export function install(root, home, previousRoot = null) {
   const base = fs.realpathSync(root);
   const targets = [
     ['skills/tandem-research', 'skills/tandem-research', 'link'],
-    ['instructions/core-safety.instructions.md', 'instructions/core-safety.instructions.md', 'file'],
     ['settings.json', 'settings.json', 'settings'],
   ];
   const retiredTargets = [
@@ -65,6 +64,7 @@ export function install(root, home, previousRoot = null) {
     ['hooks/budget-reads.json', 'file'],
     ['hooks/continuous-improvement.json', 'file'],
     ['instructions/budget-workflow.instructions.md', 'file'],
+    ['instructions/core-safety.instructions.md', 'file'],
   ];
   const installedPlan = targets.map(([source, target, kind]) => {
     const destination = path.join(home, target);

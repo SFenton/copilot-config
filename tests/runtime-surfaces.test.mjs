@@ -24,7 +24,6 @@ const ALLOWED_GENERIC_PATH_PATTERNS = [
 const RUNTIME_SURFACES = [
   '.github/workflows/budget-contracts.yml',
   'README.md',
-  'instructions/budget-workflow.instructions.md',
   'scripts/checkout-project-manifest.mjs',
   'skills/budget-workflow/SKILL.md',
   'skills/budget-workflow/scripts/budget.mjs',
@@ -65,17 +64,18 @@ test('explicit integration data and fixtures may retain repository names and gen
   assert.equal(ALLOWED_GENERIC_PATH_PATTERNS.some(pattern => pattern.test(combined)), true);
 });
 
-test('budget contracts workflow requires manifest-backed integration on normal CI without repository coupling', () => {
+test('project integration runs only on explicit dispatch or workflow call', () => {
   const source = text('.github/workflows/budget-contracts.yml')
     .replace(/\r\n/g, '\n');
   assert.match(source, /\n\s*pull_request:\n/);
   assert.match(source, /\n\s*push:\n/);
   assert.match(source, /\n\s*workflow_call:\n/);
-  assert.doesNotMatch(source, /if:\s*github\.event_name == 'workflow_dispatch'/);
+  assert.match(source,
+    /projects:\s*\n\s*if: github\.event_name == 'workflow_dispatch' \|\| github\.event_name == 'workflow_call'/);
   assert.match(source, /BUDGET_PROJECT_MANIFEST_JSON/);
   assert.match(source, /CROSS_REPO_READ_TOKEN/);
   assert.match(source,
-    /Manifest-backed exact-ref integration manifest is required on pull_request, push, workflow_dispatch, and workflow_call runs\./);
+    /Explicit project integration requires an exact-ref manifest\./);
   for (const runner of ['ubuntu-latest', 'macos-latest', 'windows-latest']) {
     assert.match(source, new RegExp(runner));
   }

@@ -45,6 +45,7 @@ jobs:
       - run: npm run test:skills
 
   projects:
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -75,7 +76,7 @@ jobs:
             .filter(([, value]) => value.length > 0);
           if (candidates.length === 0) {
             throw new Error(
-              'Manifest-backed exact-ref integration manifest is required on pull_request, push, workflow_dispatch, and workflow_call runs. Supply project_manifest_json or configure BUDGET_PROJECT_MANIFEST_JSON as a repository variable or secret.',
+              'Explicit project integration requires an exact-ref manifest. Supply project_manifest_json or configure BUDGET_PROJECT_MANIFEST_JSON as a repository variable or secret.',
             );
           }
           const [source, json] = candidates[0];

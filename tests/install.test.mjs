@@ -69,7 +69,7 @@ function seedPrevious({ previous, home }, extras = {}) {
   return oldSettings;
 }
 
-test('fresh install loads only tandem and core safety while preserving unrelated settings', t => {
+test('fresh install loads only tandem and settings while preserving unrelated configuration', t => {
   const { source, home } = fixture(t);
   fs.mkdirSync(home);
   fs.writeFileSync(path.join(home, 'config.json'), '{"unrelated":true}');
@@ -79,8 +79,7 @@ test('fresh install loads only tandem and core safety while preserving unrelated
   assert.deepEqual(result.retired, []);
   assert.equal(fs.realpathSync(path.join(home, 'skills/tandem-research')),
     fs.realpathSync(path.join(source, 'skills/tandem-research')));
-  assert.equal(fs.readFileSync(path.join(home, 'instructions/core-safety.instructions.md'), 'utf8'),
-    'Core safety remains active.\n');
+  assert.equal(fs.existsSync(path.join(home, 'instructions/core-safety.instructions.md')), false);
   assert.equal(fs.existsSync(path.join(home, 'skills/budget-workflow')), false);
   for (const file of BUDGET_FILES) assert.equal(fs.existsSync(path.join(home, file)), false);
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(home, 'settings.json'), 'utf8')),
@@ -123,6 +122,19 @@ test('upgrade retires only recognized budget surfaces and rollback restores them
     false);
   assert.equal(fs.readFileSync(path.join(env.home, 'settings.json'), 'utf8'),
     oldSettings);
+});
+
+test('recognized core-safety instruction is retired and rollback restores it', t => {
+  const env = fixture(t);
+  const destination = path.join(env.home, 'instructions/core-safety.instructions.md');
+  fs.mkdirSync(path.dirname(destination), { recursive: true });
+  fs.copyFileSync(path.join(env.source, 'instructions/core-safety.instructions.md'),
+    destination);
+  const result = install(env.source, env.home);
+  assert.deepEqual(result.retired, [destination]);
+  assert.equal(fs.existsSync(destination), false);
+  uninstall(result.receipt);
+  assert.equal(fs.readFileSync(destination, 'utf8'), 'Core safety remains active.\n');
 });
 
 test('repeated budgetless installs remain idempotent and independently reversible', t => {
@@ -172,13 +184,13 @@ test('unknown budget file and symlink refuse installation before changing any ta
     /Refusing to retire unrecognized link/);
 });
 
-test('operator edits to core instruction and managed settings fail closed', t => {
+test('operator-owned core instruction and managed settings fail closed', t => {
   const env = fixture(t);
   fs.mkdirSync(path.join(env.home, 'instructions'), { recursive: true });
   const core = path.join(env.home, 'instructions/core-safety.instructions.md');
   fs.writeFileSync(core, 'operator-owned instruction');
   assert.throws(() => install(env.source, env.home),
-    /Refusing to replace unrecognized file/);
+    /Refusing to retire unrecognized file/);
   assert.equal(fs.readFileSync(core, 'utf8'), 'operator-owned instruction');
   fs.unlinkSync(core);
   fs.writeFileSync(path.join(env.home, 'settings.json'),
@@ -196,27 +208,26 @@ test('rollback refuses recreated retired files instead of destroying user change
   assert.throws(() => uninstall(result.receipt), /Refusing rollback of changed destination/);
   assert.equal(fs.readFileSync(destination, 'utf8'), 'new operator hook');
   assert.equal(fs.existsSync(path.join(env.home, 'instructions/core-safety.instructions.md')),
-    true);
+    false);
 });
 
-test('archived hooks remain passive source fixtures but are never installed', () => {
+test('archived hook template remains passive but is not a project hook', () => {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const archived = JSON.parse(fs.readFileSync(path.join(root, 'hooks/budget-reads.json'), 'utf8'));
-  const canonical = JSON.parse(fs.readFileSync(
-    path.join(root, '.github/hooks/budget-reads.json'), 'utf8'));
   const observer = JSON.parse(fs.readFileSync(
     path.join(root, 'hooks/continuous-improvement.json'), 'utf8'));
-  assert.deepEqual(archived, canonical);
+  assert.equal(fs.existsSync(path.join(root, '.github/hooks/budget-reads.json')), false);
   assert.deepEqual(Object.keys(archived.hooks), ['sessionEnd']);
   assert.deepEqual(observer.hooks, {});
 });
 
-test('documentation describes a budgetless global profile and rollback', () => {
+test('documentation describes installation without generic instructions or hooks', () => {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
   const instruction = fs.readFileSync(
     path.join(root, 'instructions/core-safety.instructions.md'), 'utf8');
   assert.match(readme, /installer links only tandem-research/i);
+  assert.match(readme, /does not install a\s+generic instruction or hook/i);
   assert.match(readme, /copilot-install-TIMESTAMP-UUID\.json/);
   assert.match(readme, /interactive default is `gpt-6-sol`/);
   assert.match(instruction, /Do not use Claude models except Claude Opus 5\.5/);

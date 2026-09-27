@@ -10,7 +10,7 @@ function text(relativePath) {
   return fs.readFileSync(path.join(ROOT, relativePath), 'utf8');
 }
 
-test('default instruction retains safety without routing research', () => {
+test('optional instruction template retains safety without routing research', () => {
   const instruction = text('instructions/core-safety.instructions.md');
 
   assert.match(instruction, /current main model owns task meaning/i);

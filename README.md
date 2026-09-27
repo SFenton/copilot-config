@@ -46,22 +46,21 @@ node scripts/install.mjs
 node scripts/install.mjs /absolute/path/to/copilot-config
 ```
 
-The installer links only tandem-research, copies the minimal
-`instructions/core-safety.instructions.md`, and merges managed keys from
-`settings.json` into `$COPILOT_HOME` or `~/.copilot`. With an explicitly
-named previous checkout, it also retires **only recognized** budget skill,
-hook, and instruction files. Unknown links, changed files, and conflicting
-managed settings fail closed. It records a rollback receipt before changes
-and preserves unrelated settings, skills, credentials, and permissions.
+The installer links only tandem-research and merges managed keys from
+`settings.json` into `$COPILOT_HOME` or `~/.copilot`. It does not install a
+generic instruction or hook. It retires only recognized budget assets and
+managed `core-safety.instructions.md` copies; with an explicitly named previous
+checkout, it also recognizes that checkout's original content. Unknown links,
+changed files, and conflicting managed settings fail closed. It records a
+rollback receipt before changes and preserves unrelated settings, skills,
+credentials, and permissions.
 Links point at this checkout: keep the merged-main worktree installed.
 Shared CI runs the repository and internal skill suites on all three platforms.
 
-The personal instruction keeps only model and authorization safety: the
-Claude exception is the read-only tandem secondary role, and auto-merge is
-allowed only on pull requests authored by `SFenton`. It does not route
-research or require budget packets, receipts, or workers.
+The optional instruction sources remain in this repository for explicit use;
+they are not loaded into ordinary sessions by this installer.
 
-This is instruction- and settings-based behavior, not an installed `/plugin`
+This is skill- and settings-based behavior, not an installed `/plugin`
 package or a billing/security interceptor. The managed `settings.json` keys set
 the Copilot CLI user defaults. The interactive default is `gpt-6-sol`;
 budget-workflow and ha-budget-workflow skills are disabled, while normal CLI
@@ -74,8 +73,8 @@ restore the previous installation:
 node scripts/install.mjs --rollback /absolute/path/to/copilot-install-TIMESTAMP-UUID.json
 ```
 
-The installer writes settings and core instruction JSON/Markdown; tandem
-remains symlinked. No user-level budget hook is installed. Optional archived
+The installer writes settings JSON and symlinks tandem; it installs no user-level
+instruction or hook. Optional archived
 planners, evidence builders, history packetizers, and learning scripts remain
 available in this repository for explicit use and testing, but they do not
 route ordinary work.
@@ -352,8 +351,10 @@ canonical implementation; it never imports or executes repository-selected
 code. All manifest paths stay repository-contained, compatibility metadata
 remains data only, and prepare commands remain top-level so coverage
 declarations cannot smuggle shell execution. Keep local manifest paths and raw
-evidence outside the repository. The shared CI workflow consumes an exact-ref
-integration manifest instead of hardcoding repository identifiers. For sandbox
+evidence outside the repository. The shared CI workflow runs project
+integration only for `workflow_dispatch` or `workflow_call` with an exact-ref
+manifest; ordinary pull requests and pushes
+run shared checks without project adapters. For sandbox
 fixtures on clean public runners, CI pre-pulls the declared images and accepts
 current public tags when a mutable upstream tag no longer resolves to the exact
 historical image ID, while the checked-in capability and sandbox metadata
